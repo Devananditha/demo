@@ -115,32 +115,95 @@ class PredictReadinessClassifier:
                 computed_at=now,
             )
 
+        # Unknown inventory status on any required part
+        for part in ro_parts:
+            part_status_str = part.inventory_status.value if hasattr(part.inventory_status, "value") else str(part.inventory_status)
+            if part_status_str == "UNKNOWN":
+                reasons.append(f"PART_INVENTORY_STATUS_UNKNOWN_{part.part_req_id}")
+                return RepairOrderAssessment(
+                    ro_id=ro.ro_id,
+                    snapshot_hash=snapshot.snapshot_hash or "",
+                    state=ReadinessState.UNKNOWN,
+                    reasons=reasons,
+                    p_delay=1.0,
+                    calibration_status=CalibrationStatus.UNCALIBRATED,
+                    data_freshness_seconds=freshness_seconds,
+                    computed_at=now,
+                )
+
+        # Missing assigned bay telemetry
+        all_bays_by_id = {b.bay_id: b for b in snapshot.bays}
+        if ro.assigned_bay_id and ro.assigned_bay_id not in all_bays_by_id:
+            reasons.append("ASSIGNED_BAY_TELEMETRY_MISSING")
+            return RepairOrderAssessment(
+                ro_id=ro.ro_id,
+                snapshot_hash=snapshot.snapshot_hash or "",
+                state=ReadinessState.UNKNOWN,
+                reasons=reasons,
+                p_delay=1.0,
+                calibration_status=CalibrationStatus.UNCALIBRATED,
+                data_freshness_seconds=freshness_seconds,
+                computed_at=now,
+            )
+
+        # Active technician telemetry availability
+        active_techs = [t for t in snapshot.technicians if t.is_active]
+        if not active_techs:
+            reasons.append("NO_ACTIVE_TECHNICIAN_TELEMETRY")
+            return RepairOrderAssessment(
+                ro_id=ro.ro_id,
+                snapshot_hash=snapshot.snapshot_hash or "",
+                state=ReadinessState.UNKNOWN,
+                reasons=reasons,
+                p_delay=1.0,
+                calibration_status=CalibrationStatus.UNCALIBRATED,
+                data_freshness_seconds=freshness_seconds,
+                computed_at=now,
+            )
+
         # ====================================================================
         # STEP 2: HARD GATE VALIDATION (C1 Skills/Bays & Backordered Parts)
         # ====================================================================
-        # C1 Skills available in rooftop
+        # Only incomplete tasks require future workshop resources (Finding 5)
+        incomplete_tasks = [
+            t for t in ro_tasks
+            if (t.status.value if hasattr(t.status, "value") else str(t.status)) in {"PENDING", "IN_PROGRESS", "STALLED"}
+        ]
+
+        # C1 Skills available in rooftop for incomplete tasks
         all_skills = {
             skill
-            for tech in snapshot.technicians
-            if tech.is_active
+            for tech in active_techs
             for skill in tech.skill_certifications
         }
-        for task in ro_tasks:
+        for task in incomplete_tasks:
             if task.required_skill not in all_skills:
                 reasons.append(f"UNAVAILABLE_TECHNICIAN_SKILL_{task.required_skill}")
 
-        # C1 Bay types available in rooftop
+        # C1 Bay types available in rooftop for incomplete tasks
         operational_bay_types = {b.bay_type for b in snapshot.bays if b.is_operational}
-        for task in ro_tasks:
+        for task in incomplete_tasks:
             if task.required_bay_type not in operational_bay_types:
                 reasons.append(f"UNAVAILABLE_BAY_TYPE_{task.required_bay_type}")
 
-        # Parts hard-gate: Backordered parts with no usable ready tick and no candidate supplier offers
+        # If vehicle is immobilized in an assigned bay, that specific bay must be operational
+        if ro.assigned_bay_id and ro.assigned_bay_id in all_bays_by_id:
+            assigned_bay = all_bays_by_id[ro.assigned_bay_id]
+            if not assigned_bay.is_operational:
+                reasons.append(f"ASSIGNED_BAY_INOPERATIVE_{ro.assigned_bay_id}")
+
+        # Valid supplier offers (active and unexpired)
+        valid_offers = [
+            o for o in ro_offers
+            if (o.quote_status.value if hasattr(o.quote_status, "value") else str(o.quote_status)) in {"ACTIVE", "ACCEPTED"}
+            and (o.quote_valid_until if o.quote_valid_until.tzinfo else o.quote_valid_until.replace(tzinfo=timezone.utc)) >= now
+        ]
+
+        # Parts hard-gate: Backordered parts with no usable ready tick and no valid candidate supplier offers
         for part in ro_parts:
             status_str = part.inventory_status.value if hasattr(part.inventory_status, "value") else str(part.inventory_status)
             if status_str == "BACKORDERED" and part.usable_ready_tick is None:
-                # Check if an alternative supplier offer exists
-                part_offers = [o for o in ro_offers if o.part_req_id == part.part_req_id]
+                part_offers = [o for o in valid_offers if o.part_req_id == part.part_req_id]
                 if not part_offers:
                     reasons.append("PART_BACKORDERED_NO_ETA")
 
@@ -165,8 +228,7 @@ class PredictReadinessClassifier:
         # Calculate Latest Feasible Start (LFS)
         lfs_tick = SlackAnalyzer.calculate_latest_feasible_start(ro, ro_tasks)
 
-        # Determine effective usable-ready tick for parts
-        # If parts are required, find the latest usable-ready tick across required parts
+        # Determine effective primary usable-ready tick for parts
         latest_usable_ready_tick: Optional[int] = None
         has_in_transit_part: bool = False
         supplier_id_for_delay: Optional[str] = None
@@ -178,9 +240,9 @@ class PredictReadinessClassifier:
                     has_in_transit_part = True
                 
                 u_tick = part.usable_ready_tick
-                # If part has supplier offers, select the earliest usable offer if part has no tick
+                # If part has no usable ready tick, check valid candidate supplier offers
                 if u_tick is None:
-                    part_offers = [o for o in ro_offers if o.part_req_id == part.part_req_id]
+                    part_offers = [o for o in valid_offers if o.part_req_id == part.part_req_id]
                     if part_offers:
                         best_offer = min(part_offers, key=lambda o: o.usable_ready_tick)
                         u_tick = best_offer.usable_ready_tick
@@ -189,8 +251,8 @@ class PredictReadinessClassifier:
                 if u_tick is not None:
                     latest_usable_ready_tick = max(latest_usable_ready_tick or 0, u_tick)
         else:
-            # No parts required: ready at start of operating day (or current tick)
-            latest_usable_ready_tick = current_tick or snapshot.rooftop.operating_day_start_tick
+            # No parts required: ready at evaluation tick if supplied, or start of operating day
+            latest_usable_ready_tick = current_tick if current_tick is not None else snapshot.rooftop.operating_day_start_tick
 
         # Compute empirical-Bayes quantiles and delay probability
         quantiles: Optional[QuantileInterval] = None
@@ -208,12 +270,28 @@ class PredictReadinessClassifier:
                 supplier_id=supplier_id_for_delay,
             )
 
-        # Compute operational slack
+        # Compute operational slack (both schedule buffer and evaluation window)
         slack = SlackAnalyzer.compute_slack(
             latest_feasible_start_tick=lfs_tick,
             usable_ready_tick=latest_usable_ready_tick,
+            current_tick=current_tick,
             quantiles=quantiles,
         )
+
+        # Evaluate candidate supplier recovery alternatives (Finding 1)
+        has_recovery_alt = False
+        best_alt_usable_tick: Optional[int] = None
+        best_alt_slack_minutes: Optional[int] = None
+
+        if valid_offers:
+            # Sort valid offers by arrival to find the best viable recovery option
+            for offer in sorted(valid_offers, key=lambda o: o.usable_ready_tick):
+                alt_slack_ticks = lfs_tick - offer.usable_ready_tick
+                if alt_slack_ticks >= 0:
+                    has_recovery_alt = True
+                    best_alt_usable_tick = offer.usable_ready_tick
+                    best_alt_slack_minutes = alt_slack_ticks * 5
+                    break
 
         # ====================================================================
         # STEP 4: AT_RISK VS READY CLASSIFICATION
@@ -225,6 +303,7 @@ class PredictReadinessClassifier:
         # Condition E: Parts in transit facing courier lead-time variance
 
         is_at_risk = False
+        ro_status_str = ro.status.value if hasattr(ro.status, "value") else str(ro.status)
 
         if slack.slack_ticks is not None and slack.slack_ticks < SLACK_AT_RISK_THRESHOLD_TICKS:
             is_at_risk = True
@@ -238,21 +317,13 @@ class PredictReadinessClassifier:
             is_at_risk = True
             reasons.append("PARTS_IN_TRANSIT_LEAD_TIME_RISK")
 
-        if physical_state_str == "IMMOBILIZED_ON_LIFT" and (has_in_transit_part or (ro.status.value if hasattr(ro.status, "value") else str(ro.status)) == "STALLED"):
+        if physical_state_str == "IMMOBILIZED_ON_LIFT" and (has_in_transit_part or ro_status_str == "STALLED"):
             is_at_risk = True
             reasons.append("VEHICLE_IMMOBILIZED_ON_LIFT_STALLED")
 
-        # If primary baseline slack is severely negative (< 0) and has NO candidate alternatives at all:
+        # If primary baseline slack is severely negative (< 0):
         if slack.slack_ticks is not None and slack.slack_ticks < SLACK_BLOCKED_THRESHOLD_TICKS:
-            # Check if any candidate supplier offer can achieve non-negative slack
-            has_viable_alternative = False
-            for offer in ro_offers:
-                alt_slack = lfs_tick - offer.usable_ready_tick
-                if alt_slack >= 0:
-                    has_viable_alternative = True
-                    break
-            
-            if not has_viable_alternative:
+            if not has_recovery_alt:
                 reasons.append("NEGATIVE_SLACK_UNRECOVERABLE")
                 return RepairOrderAssessment(
                     ro_id=ro.ro_id,
@@ -264,8 +335,12 @@ class PredictReadinessClassifier:
                     slack=slack,
                     calibration_status=calibration_status,
                     data_freshness_seconds=freshness_seconds,
+                    has_recovery_alternative=False,
                     computed_at=now,
                 )
+            else:
+                is_at_risk = True
+                reasons.append("NEGATIVE_SLACK_RECOVERABLE_VIA_ALTERNATIVE")
 
         if is_at_risk:
             return RepairOrderAssessment(
@@ -278,6 +353,9 @@ class PredictReadinessClassifier:
                 slack=slack,
                 calibration_status=calibration_status,
                 data_freshness_seconds=freshness_seconds,
+                has_recovery_alternative=has_recovery_alt,
+                best_alternative_usable_tick=best_alt_usable_tick,
+                best_alternative_slack_minutes=best_alt_slack_minutes,
                 computed_at=now,
             )
 
@@ -293,6 +371,7 @@ class PredictReadinessClassifier:
             slack=slack,
             calibration_status=calibration_status,
             data_freshness_seconds=freshness_seconds,
+            has_recovery_alternative=False,
             computed_at=now,
         )
 

@@ -123,3 +123,57 @@ class TestEmpiricalBayesQuantileEngine:
         assert q1.p10 == q2.p10
         assert q1.p50 == q2.p50
         assert q1.p90 == q2.p90
+
+    def test_streaming_p2_quantiles_retrieval_and_blending(self):
+        """Finding 4: Streaming P² quantiles can be retrieved and blended with empirical Bayes."""
+        engine = EmpiricalBayesQuantileEngine()
+        # Record 15 delivery slip observations
+        for i in range(15):
+            engine.record_supplier_delivery("S1", actual_usable_tick=105 + (i % 5), quoted_usable_tick=100)
+
+        # Retrieve direct streaming P2 quantiles
+        p2_q = engine.get_streaming_p2_quantiles("S1", base_usable_ready_tick=100)
+        assert p2_q is not None
+        assert p2_q.p10 <= p2_q.p50 <= p2_q.p90
+
+        # Estimate with blending enabled
+        blended_q, status = engine.estimate_usable_ready_quantiles(
+            base_usable_ready_tick=100,
+            supplier_id="S1",
+            blend_streaming_p2=True,
+        )
+        assert status == CalibrationStatus.CALIBRATED_FULL
+        assert blended_q.p10 <= blended_q.p50 <= blended_q.p90
+
+
+class TestLaborDurationEstimator:
+    """Finding 4: Verification of labor operation duration empirical-Bayes estimation."""
+
+    def test_labor_duration_cold_start(self):
+        from app.predict.engine import LaborDurationEstimator
+        estimator = LaborDurationEstimator()
+        q, status = estimator.estimate_duration_quantiles(flat_rate_ticks=12, operation_code="OP-BRAKE")
+        assert status == CalibrationStatus.UNCALIBRATED
+        assert q.p10 <= q.p50 <= q.p90
+        # Under cold start prior (mean ratio 1.0), P50 is approx 12 ticks
+        assert q.p50 == 12
+
+    def test_labor_duration_shrinkage_with_observations(self):
+        from app.predict.engine import LaborDurationEstimator
+        estimator = LaborDurationEstimator()
+        # Record 4 slow jobs (ratio = 15/10 = 1.5)
+        for _ in range(4):
+            estimator.record_operation_duration("OP-SLOW", actual_ticks=15, flat_rate_ticks=10)
+
+        ratio, _, status = estimator.get_shrunk_posterior("OP-SLOW")
+        assert status == CalibrationStatus.CALIBRATED_LIGHT
+        # Prior is 1.0 (weight 5), sample mean is 1.5 (weight 4) -> shrunk mean = (5*1.0 + 4*1.5)/9 = 11/9 = 1.22
+        assert 1.15 < ratio < 1.30
+
+        # Add 8 more observations -> total 12 -> CALIBRATED_FULL
+        for _ in range(8):
+            estimator.record_operation_duration("OP-SLOW", actual_ticks=15, flat_rate_ticks=10)
+
+        ratio_full, _, status_full = estimator.get_shrunk_posterior("OP-SLOW")
+        assert status_full == CalibrationStatus.CALIBRATED_FULL
+        assert ratio_full > ratio  # Pulled even closer to 1.5

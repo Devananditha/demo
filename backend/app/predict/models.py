@@ -47,13 +47,15 @@ class OperationalSlack(BaseModel):
     """Operational schedule slack between latest feasible start and usable-ready time."""
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
-    latest_feasible_start_tick: int = Field(..., ge=0, le=288)
+    latest_feasible_start_tick: int = Field(..., le=288, description="Latest feasible start tick (can be negative if already overdue)")
     usable_ready_tick: Optional[int] = Field(default=None, ge=0, le=288)
-    slack_ticks: Optional[int] = Field(default=None, description="LFS tick - usable ready tick")
+    slack_ticks: Optional[int] = Field(default=None, description="Schedule buffer: LFS tick - usable ready tick")
     slack_minutes: Optional[int] = Field(default=None, description="slack_ticks * 5")
     slack_p10_ticks: Optional[int] = Field(default=None)
     slack_p50_ticks: Optional[int] = Field(default=None)
     slack_p90_ticks: Optional[int] = Field(default=None)
+    evaluation_slack_ticks: Optional[int] = Field(default=None, description="Evaluation window: LFS tick - current evaluation tick")
+    evaluation_slack_minutes: Optional[int] = Field(default=None, description="evaluation_slack_ticks * 5")
 
 
 class RepairOrderAssessment(BaseModel):
@@ -69,6 +71,9 @@ class RepairOrderAssessment(BaseModel):
     slack: Optional[OperationalSlack] = Field(default=None)
     calibration_status: CalibrationStatus = Field(default=CalibrationStatus.UNCALIBRATED)
     data_freshness_seconds: int = Field(default=0, ge=0)
+    has_recovery_alternative: bool = Field(default=False, description="Whether a viable alternative supplier offer exists to recover negative baseline slack")
+    best_alternative_usable_tick: Optional[int] = Field(default=None, ge=0, le=288, description="Usable ready tick of best candidate supplier recovery offer")
+    best_alternative_slack_minutes: Optional[int] = Field(default=None, description="Slack minutes achieved under best alternative supplier offer")
     computed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
