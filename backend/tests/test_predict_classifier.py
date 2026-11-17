@@ -57,15 +57,32 @@ class TestPredictFourStateClassifier:
         ro_104 = assessments_by_id["RO-104"]
         assert ro_104.state == ReadinessState.AT_RISK
         assert "VEHICLE_IMMOBILIZED_ON_LIFT_STALLED" in ro_104.reasons or "PARTS_IN_TRANSIT_LEAD_TIME_RISK" in ro_104.reasons
+        # Finding 1 audit assertions: Primary baseline never conflated with alternative
+        assert ro_104.slack.latest_feasible_start_tick == 168
+        assert ro_104.slack.usable_ready_tick == 198
+        assert ro_104.slack.slack_ticks == -30
+        assert ro_104.slack.slack_minutes == -150
+        assert ro_104.p_delay == 1.0
+        assert ro_104.has_recovery_alternative is True
+        assert ro_104.best_alternative_usable_tick == 165
+        assert ro_104.best_alternative_slack_minutes == 15
+        assert "NEGATIVE_SLACK_RECOVERABLE_VIA_ALTERNATIVE" in ro_104.reasons
 
         # RO-105 (MANDATORY ANCHOR): Inverter harness BACKORDERED without ETA or quotes -> BLOCKED
         ro_105 = assessments_by_id["RO-105"]
         assert ro_105.state == ReadinessState.BLOCKED
         assert "PART_BACKORDERED_NO_ETA" in ro_105.reasons
 
-        # RO-106: Stalling diagnosis, no parts required, positive slack (+390m) -> READY
+        # RO-106: Stalling diagnosis, no parts required, evaluated at current_tick=159 -> READY
         ro_106 = assessments_by_id["RO-106"]
         assert ro_106.state == ReadinessState.READY
+        # Finding 2 audit assertions: Exact usable-ready tick and slacks at current_tick=159
+        assert ro_106.slack.latest_feasible_start_tick == 174
+        assert ro_106.slack.usable_ready_tick == 159
+        assert ro_106.slack.slack_ticks == 15
+        assert ro_106.slack.slack_minutes == 75
+        assert ro_106.slack.evaluation_slack_ticks == 15
+        assert ro_106.slack.evaluation_slack_minutes == 75
 
         # Summary count assertions
         assert report.summary_counts[ReadinessState.READY.value] == 4
@@ -145,3 +162,96 @@ class TestPredictFourStateClassifier:
         assessment = custom_classifier.assess_repair_order(ro, snap_copy)
         assert assessment.state == ReadinessState.AT_RISK
         assert any("DELAY_PROBABILITY_EXCEEDS_THRESHOLD" in r for r in assessment.reasons)
+
+    def test_ro_106_start_of_day_slack_reconciliation(self, classifier, snapshot):
+        """Finding 2: Evaluates RO-106 at start of day (no current_tick / current_tick=96)."""
+        ref_time = datetime(2026, 11, 18, 8, 0, 0, tzinfo=timezone.utc)
+        ro_106 = next(r for r in snapshot.repair_orders if r.ro_id == "RO-106")
+        
+        assessment = classifier.assess_repair_order(ro_106, snapshot, current_tick=None, now_utc=ref_time)
+        assert assessment.state == ReadinessState.READY
+        assert assessment.slack.latest_feasible_start_tick == 174
+        assert assessment.slack.usable_ready_tick == 96
+        assert assessment.slack.slack_ticks == 78
+        assert assessment.slack.slack_minutes == 390
+
+    def test_unknown_state_on_part_inventory_status_unknown(self, classifier, snapshot):
+        """Finding 3: Unknown inventory status on required part fails closed to UNKNOWN."""
+        snap_copy = snapshot.model_copy(deep=True)
+        snap_copy.part_requirements[0].inventory_status = "UNKNOWN"
+        ro = snap_copy.repair_orders[0]
+        assessment = classifier.assess_repair_order(ro, snap_copy)
+        assert assessment.state == ReadinessState.UNKNOWN
+        assert any("PART_INVENTORY_STATUS_UNKNOWN" in r for r in assessment.reasons)
+
+    def test_unknown_state_on_missing_assigned_bay(self, classifier, snapshot):
+        """Finding 3: Assigned bay not present in rooftop inventory fails closed to UNKNOWN."""
+        snap_copy = snapshot.model_copy(deep=True)
+        ro = snap_copy.repair_orders[0].model_copy(deep=True)
+        ro.assigned_bay_id = "NON_EXISTENT_BAY"
+        assessment = classifier.assess_repair_order(ro, snap_copy)
+        assert assessment.state == ReadinessState.UNKNOWN
+        assert "ASSIGNED_BAY_TELEMETRY_MISSING" in assessment.reasons
+
+    def test_blocked_state_on_assigned_bay_inoperative(self, classifier, snapshot):
+        """Finding 5: Immobilized vehicle assigned to inoperative bay fails to BLOCKED."""
+        snap_copy = snapshot.model_copy(deep=True)
+        for bay in snap_copy.bays:
+            if bay.bay_id == "BAY-01":
+                bay.is_operational = False
+        ro_104 = next(r for r in snap_copy.repair_orders if r.ro_id == "RO-104")
+        assessment = classifier.assess_repair_order(ro_104, snap_copy)
+        assert assessment.state == ReadinessState.BLOCKED
+        assert "ASSIGNED_BAY_INOPERATIVE_BAY-01" in assessment.reasons
+
+    def test_expired_quote_rejected_and_fails_closed(self, classifier, snapshot):
+        """Finding 3: Expired supplier quotes cannot satisfy part readiness."""
+        snap_copy = snapshot.model_copy(deep=True)
+        from app.schemas.domain import SupplierOfferSchema, QuoteStatus
+        from decimal import Decimal
+        expired_offer = SupplierOfferSchema(
+            offer_id="OFFER-105-EXP",
+            part_req_id="PART-REQ-105-HARNESS",
+            supplier_id="S1_HOTSHOT",
+            supplier_name="Hotshot Parts",
+            unit_cost_usd=Decimal("150.00"),
+            quoted_eta_tick=160,
+            receiving_inspection_minutes=15,
+            usable_ready_tick=163,
+            quote_valid_until=datetime(2026, 11, 18, 10, 0, tzinfo=timezone.utc),
+            quote_status=QuoteStatus.EXPIRED,
+            version=1,
+        )
+        snap_copy.supplier_offers.append(expired_offer)
+        ro_105 = next(r for r in snap_copy.repair_orders if r.ro_id == "RO-105")
+        ref_time = datetime(2026, 11, 18, 13, 15, tzinfo=timezone.utc)
+        assessment = classifier.assess_repair_order(ro_105, snap_copy, now_utc=ref_time)
+        assert assessment.state == ReadinessState.BLOCKED
+        assert "PART_BACKORDERED_NO_ETA" in assessment.reasons
+
+    def test_completed_task_does_not_impose_future_resource_requirements(self, classifier, snapshot):
+        """Finding 5: Completed tasks must not be treated as future work requirements."""
+        snap_copy = snapshot.model_copy(deep=True)
+        from app.schemas.domain import TaskSchema, TaskStatus
+        completed_ev_task = TaskSchema(
+            task_id="TASK-101-EV-DONE",
+            ro_id="RO-101",
+            sequence_order=1,
+            operation_code="EV-DIAG-DONE",
+            description="Completed EV diagnostic",
+            required_skill="EV",
+            required_bay_type="STANDARD_2POST",
+            flat_rate_minutes=30,
+            estimated_duration_ticks=6,
+            status=TaskStatus.COMPLETED,
+            version=1,
+        )
+        snap_copy.tasks.append(completed_ev_task)
+        # Remove EV skill from all technicians
+        for tech in snap_copy.technicians:
+            tech.skill_certifications = [s for s in tech.skill_certifications if s != "EV"]
+
+        ro_101 = next(r for r in snap_copy.repair_orders if r.ro_id == "RO-101")
+        assessment = classifier.assess_repair_order(ro_101, snap_copy)
+        # Since the EV task is COMPLETED, it does not block future readiness!
+        assert assessment.state == ReadinessState.READY

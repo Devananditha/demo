@@ -1,7 +1,13 @@
 """ServiceYield AI Predict Layer 1 Module."""
 
 from app.predict.classifier import PredictReadinessClassifier
-from app.predict.engine import EmpiricalBayesQuantileEngine, P2QuantileEstimator
+from app.predict.engine import (
+    EmpiricalBayesQuantileEngine,
+    LaborDurationEstimator,
+    OperationEvidence,
+    P2QuantileEstimator,
+    SupplierEvidence,
+)
 from app.predict.models import (
     CalibrationStatus,
     DealershipReadinessReport,
@@ -22,6 +28,8 @@ __all__ = [
     "CalibrationStatus",
     "DealershipReadinessReport",
     "EmpiricalBayesQuantileEngine",
+    "LaborDurationEstimator",
+    "OperationEvidence",
     "OperationalSlack",
     "P2QuantileEstimator",
     "PredictReadinessClassifier",
@@ -31,6 +39,7 @@ __all__ = [
     "SlackAnalyzer",
     "SLACK_AT_RISK_THRESHOLD_TICKS",
     "SLACK_BLOCKED_THRESHOLD_TICKS",
+    "SupplierEvidence",
     "TAU_CLEAR",
     "TAU_RAISE",
 ]

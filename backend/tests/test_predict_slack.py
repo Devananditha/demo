@@ -130,3 +130,83 @@ class TestSlackAnalyzer:
         assert slack.usable_ready_tick is None
         assert slack.slack_ticks is None
         assert slack.slack_minutes is None
+
+    def test_precedence_cycle_raises_value_error(self, base_ro):
+        """Finding 6: Precedence cycles in task DAG must raise a clear ValueError."""
+        tasks = [
+            TaskSchema(
+                task_id="T1",
+                ro_id="RO-TEST-01",
+                sequence_order=1,
+                operation_code="OP-1",
+                description="Task 1",
+                required_skill="BRAKES",
+                required_bay_type="STANDARD_2POST",
+                flat_rate_minutes=60,
+                estimated_duration_ticks=12,
+                status=TaskStatus.PENDING,
+                predecessor_task_ids=["T2"],  # T1 depends on T2
+                version=1,
+            ),
+            TaskSchema(
+                task_id="T2",
+                ro_id="RO-TEST-01",
+                sequence_order=2,
+                operation_code="OP-2",
+                description="Task 2",
+                required_skill="BRAKES",
+                required_bay_type="STANDARD_2POST",
+                flat_rate_minutes=60,
+                estimated_duration_ticks=12,
+                status=TaskStatus.PENDING,
+                predecessor_task_ids=["T1"],  # T2 depends on T1 -> CYCLE!
+                version=1,
+            ),
+        ]
+        with pytest.raises(ValueError, match="Precedence cycle detected"):
+            SlackAnalyzer.calculate_latest_feasible_start(base_ro, tasks)
+
+    def test_negative_lfs_when_overdue(self, base_ro):
+        """Finding 6: When promise tick < remaining duration, LFS is negative (not clamped to 0)."""
+        tasks = [
+            TaskSchema(
+                task_id="T1",
+                ro_id="RO-TEST-01",
+                sequence_order=1,
+                operation_code="OP-1",
+                description="Task 1",
+                required_skill="BRAKES",
+                required_bay_type="STANDARD_2POST",
+                flat_rate_minutes=120,
+                estimated_duration_ticks=50,
+                status=TaskStatus.PENDING,
+                version=1,
+            ),
+        ]
+        # base_ro promise_tick = 30, remaining duration = 50 -> LFS = 30 - 50 = -20
+        overdue_ro = base_ro.model_copy(deep=True)
+        overdue_ro.promise_tick = 30
+        lfs = SlackAnalyzer.calculate_latest_feasible_start(overdue_ro, tasks)
+        assert lfs == -20
+
+    def test_evaluation_slack_with_current_tick(self):
+        """Finding 6: Evaluation slack computes LFS - current_tick."""
+        slack = SlackAnalyzer.compute_slack(
+            latest_feasible_start_tick=174,
+            usable_ready_tick=159,
+            current_tick=159,
+        )
+        assert slack.slack_ticks == 15
+        assert slack.slack_minutes == 75
+        assert slack.evaluation_slack_ticks == 15
+        assert slack.evaluation_slack_minutes == 75
+
+        # If current_tick is past LFS:
+        late_slack = SlackAnalyzer.compute_slack(
+            latest_feasible_start_tick=150,
+            usable_ready_tick=140,
+            current_tick=160,
+        )
+        assert late_slack.slack_ticks == 10  # 150 - 140 = 10 buffer ticks
+        assert late_slack.evaluation_slack_ticks == -10  # 150 - 160 = -10 (overdue to start)
+        assert late_slack.evaluation_slack_minutes == -50
