@@ -13,6 +13,11 @@ __pycache__/
 .coverage
 htmlcov/
 
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
 # Node / Frontend
 node_modules/
 dist/

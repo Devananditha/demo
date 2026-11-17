@@ -1,0 +1,403 @@
+{
+  "rooftop": {
+    "rooftop_id": "ROOF-01",
+    "name": "Metro Dealership Synthetic Rooftop",
+    "timezone": "America/New_York",
+    "operating_day_start_tick": 96,
+    "operating_day_end_tick": 204,
+    "overtime_cutoff_tick": 228,
+    "version": 1,
+    "created_at": "2026-11-18T08:00:00Z",
+    "updated_at": "2026-11-18T08:00:00Z"
+  },
+  "bays": [
+    {
+      "bay_id": "BAY-01",
+      "rooftop_id": "ROOF-01",
+      "name": "Heavy Diagnostic Lift 1",
+      "bay_type": "HEAVY_DIAGNOSTIC_LIFT",
+      "lifting_capacity_lbs": 12000,
+      "is_operational": true,
+      "version": 1
+    },
+    {
+      "bay_id": "BAY-02",
+      "rooftop_id": "ROOF-01",
+      "name": "Standard 2-Post Mechanical Lift 1",
+      "bay_type": "STANDARD_2POST",
+      "lifting_capacity_lbs": 10000,
+      "is_operational": true,
+      "version": 1
+    },
+    {
+      "bay_id": "BAY-03",
+      "rooftop_id": "ROOF-01",
+      "name": "Standard 2-Post Mechanical Lift 2",
+      "bay_type": "STANDARD_2POST",
+      "lifting_capacity_lbs": 10000,
+      "is_operational": true,
+      "version": 1
+    }
+  ],
+  "technicians": [
+    {
+      "tech_id": "TECH-01",
+      "rooftop_id": "ROOF-01",
+      "display_name": "Alex Vance (Master EV)",
+      "skill_certifications": ["EV", "DIAGNOSTIC", "MECHANICAL"],
+      "shift_start_tick": 96,
+      "shift_end_tick": 204,
+      "lunch_start_tick": 144,
+      "lunch_duration_ticks": 12,
+      "is_active": true,
+      "version": 1
+    },
+    {
+      "tech_id": "TECH-02",
+      "rooftop_id": "ROOF-01",
+      "display_name": "Brian Conner (Transmission)",
+      "skill_certifications": ["TRANSMISSION", "MECHANICAL"],
+      "shift_start_tick": 96,
+      "shift_end_tick": 204,
+      "lunch_start_tick": 144,
+      "lunch_duration_ticks": 12,
+      "is_active": true,
+      "version": 1
+    },
+    {
+      "tech_id": "TECH-03",
+      "rooftop_id": "ROOF-01",
+      "display_name": "Carlos Mendez (General Service)",
+      "skill_certifications": ["BRAKES", "SUSPENSION", "MECHANICAL"],
+      "shift_start_tick": 96,
+      "shift_end_tick": 204,
+      "lunch_start_tick": 144,
+      "lunch_duration_ticks": 12,
+      "is_active": true,
+      "version": 1
+    },
+    {
+      "tech_id": "TECH-04",
+      "rooftop_id": "ROOF-01",
+      "display_name": "Dave Miller (Express Lube)",
+      "skill_certifications": ["MAINTENANCE", "FLUIDS"],
+      "shift_start_tick": 96,
+      "shift_end_tick": 204,
+      "lunch_start_tick": 144,
+      "lunch_duration_ticks": 12,
+      "is_active": true,
+      "version": 1
+    }
+  ],
+  "repair_orders": [
+    {
+      "ro_id": "RO-101",
+      "rooftop_id": "ROOF-01",
+      "vehicle_id": "VEH-SYNTH-101",
+      "customer_id": "CUST-SYNTH-101",
+      "complaint": "Front brake rotor and pad wear, squealing noise",
+      "promised_at": "2026-11-18T12:00:00Z",
+      "promise_tick": 144,
+      "priority_weight": 1,
+      "status": "IN_PROGRESS",
+      "physical_state": "ROLLABLE",
+      "assigned_bay_id": "BAY-02",
+      "version": 1,
+      "updated_at": "2026-11-18T08:00:00Z"
+    },
+    {
+      "ro_id": "RO-102",
+      "rooftop_id": "ROOF-01",
+      "vehicle_id": "VEH-SYNTH-102",
+      "customer_id": "CUST-SYNTH-102",
+      "complaint": "30,000-mile factory recommended maintenance inspection",
+      "promised_at": "2026-11-18T11:00:00Z",
+      "promise_tick": 132,
+      "priority_weight": 1,
+      "status": "IN_PROGRESS",
+      "physical_state": "ROLLABLE",
+      "assigned_bay_id": "BAY-03",
+      "version": 1,
+      "updated_at": "2026-11-18T08:00:00Z"
+    },
+    {
+      "ro_id": "RO-103",
+      "rooftop_id": "ROOF-01",
+      "vehicle_id": "VEH-SYNTH-103",
+      "customer_id": "CUST-SYNTH-103",
+      "complaint": "Front suspension knocking over bumps; strut replacement",
+      "promised_at": "2026-11-18T15:00:00Z",
+      "promise_tick": 180,
+      "priority_weight": 2,
+      "status": "OPEN",
+      "physical_state": "ROLLABLE",
+      "assigned_bay_id": null,
+      "version": 1,
+      "updated_at": "2026-11-18T08:00:00Z"
+    },
+    {
+      "ro_id": "RO-104",
+      "rooftop_id": "ROOF-01",
+      "vehicle_id": "VEH-SYNTH-104",
+      "customer_id": "CUST-SYNTH-104",
+      "complaint": "Transmission slipping 2nd to 3rd gear; shift solenoid valve failure",
+      "promised_at": "2026-11-18T16:00:00Z",
+      "promise_tick": 192,
+      "priority_weight": 3,
+      "status": "STALLED",
+      "physical_state": "IMMOBILIZED_ON_LIFT",
+      "assigned_bay_id": "BAY-01",
+      "version": 1,
+      "updated_at": "2026-11-18T13:15:00Z"
+    },
+    {
+      "ro_id": "RO-105",
+      "rooftop_id": "ROOF-01",
+      "vehicle_id": "VEH-SYNTH-105",
+      "customer_id": "CUST-SYNTH-105",
+      "complaint": "High voltage battery inverter wiring harness diagnostic fault code",
+      "promised_at": "2026-11-18T17:00:00Z",
+      "promise_tick": 204,
+      "priority_weight": 2,
+      "status": "OPEN",
+      "physical_state": "IN_HOLDING",
+      "assigned_bay_id": null,
+      "version": 1,
+      "updated_at": "2026-11-18T08:00:00Z"
+    },
+    {
+      "ro_id": "RO-106",
+      "rooftop_id": "ROOF-01",
+      "vehicle_id": "VEH-SYNTH-106",
+      "customer_id": "CUST-SYNTH-106",
+      "complaint": "Intermittent engine stalling on deceleration; full diagnostic sweep required",
+      "promised_at": "2026-11-18T16:30:00Z",
+      "promise_tick": 198,
+      "priority_weight": 3,
+      "status": "OPEN",
+      "physical_state": "IN_HOLDING",
+      "assigned_bay_id": null,
+      "version": 1,
+      "updated_at": "2026-11-18T08:00:00Z"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "TASK-101-01",
+      "ro_id": "RO-101",
+      "sequence_order": 1,
+      "operation_code": "BRK-PAD-ROT",
+      "description": "Replace front brake pads and rotors, clean calipers, bleed lines",
+      "required_skill": "BRAKES",
+      "required_bay_type": "STANDARD_2POST",
+      "flat_rate_minutes": 90,
+      "estimated_duration_ticks": 18,
+      "status": "IN_PROGRESS",
+      "predecessor_task_ids": [],
+      "version": 1
+    },
+    {
+      "task_id": "TASK-102-01",
+      "ro_id": "RO-102",
+      "sequence_order": 1,
+      "operation_code": "MNT-30K-SVC",
+      "description": "30,000-mile inspection, engine oil & filter, cabin air filter replacement",
+      "required_skill": "MAINTENANCE",
+      "required_bay_type": "STANDARD_2POST",
+      "flat_rate_minutes": 60,
+      "estimated_duration_ticks": 12,
+      "status": "IN_PROGRESS",
+      "predecessor_task_ids": [],
+      "version": 1
+    },
+    {
+      "task_id": "TASK-103-01",
+      "ro_id": "RO-103",
+      "sequence_order": 1,
+      "operation_code": "SUS-STR-REP",
+      "description": "Remove and replace front strut assemblies and perform four-wheel alignment",
+      "required_skill": "SUSPENSION",
+      "required_bay_type": "STANDARD_2POST",
+      "flat_rate_minutes": 120,
+      "estimated_duration_ticks": 24,
+      "status": "PENDING",
+      "predecessor_task_ids": [],
+      "version": 1
+    },
+    {
+      "task_id": "TASK-104-01",
+      "ro_id": "RO-104",
+      "sequence_order": 1,
+      "operation_code": "TRN-TD-01",
+      "description": "Drain fluid, drop transmission oil pan, inspect valve body, locate faulty solenoid",
+      "required_skill": "TRANSMISSION",
+      "required_bay_type": "HEAVY_DIAGNOSTIC_LIFT",
+      "flat_rate_minutes": 60,
+      "estimated_duration_ticks": 12,
+      "status": "COMPLETED",
+      "predecessor_task_ids": [],
+      "version": 1
+    },
+    {
+      "task_id": "TASK-104-02",
+      "ro_id": "RO-104",
+      "sequence_order": 2,
+      "operation_code": "TRN-SOL-02",
+      "description": "Replace shift solenoid valve, re-torque valve body, install pan with new gasket, fill fluid & road test",
+      "required_skill": "TRANSMISSION",
+      "required_bay_type": "HEAVY_DIAGNOSTIC_LIFT",
+      "flat_rate_minutes": 120,
+      "estimated_duration_ticks": 24,
+      "status": "STALLED",
+      "predecessor_task_ids": ["TASK-104-01"],
+      "version": 1
+    },
+    {
+      "task_id": "TASK-105-01",
+      "ro_id": "RO-105",
+      "sequence_order": 1,
+      "operation_code": "EV-HAR-REP",
+      "description": "Isolate high voltage system, remove battery shields, replace inverter harness",
+      "required_skill": "EV",
+      "required_bay_type": "HEAVY_DIAGNOSTIC_LIFT",
+      "flat_rate_minutes": 150,
+      "estimated_duration_ticks": 30,
+      "status": "PENDING",
+      "predecessor_task_ids": [],
+      "version": 1
+    },
+    {
+      "task_id": "TASK-106-01",
+      "ro_id": "RO-106",
+      "sequence_order": 1,
+      "operation_code": "DIAG-STALL",
+      "description": "Hook up scan tool, trace live electrical waveforms, locate short to ground",
+      "required_skill": "DIAGNOSTIC",
+      "required_bay_type": "HEAVY_DIAGNOSTIC_LIFT",
+      "flat_rate_minutes": 120,
+      "estimated_duration_ticks": 24,
+      "status": "PENDING",
+      "predecessor_task_ids": [],
+      "version": 1
+    }
+  ],
+  "part_requirements": [
+    {
+      "part_req_id": "PART-REQ-101-PADS",
+      "ro_id": "RO-101",
+      "task_id": "TASK-101-01",
+      "oem_part_number": "OEM-BRK-2022-P",
+      "quantity": 1,
+      "vehicle_compatibility_ref": "ACES-SEDAN-2022-V6",
+      "inventory_status": "IN_STOCK",
+      "usable_ready_tick": 96,
+      "version": 1
+    },
+    {
+      "part_req_id": "PART-REQ-102-FILTERS",
+      "ro_id": "RO-102",
+      "task_id": "TASK-102-01",
+      "oem_part_number": "OEM-FLT-30K-KIT",
+      "quantity": 1,
+      "vehicle_compatibility_ref": "ACES-SUV-2024-I4",
+      "inventory_status": "IN_STOCK",
+      "usable_ready_tick": 96,
+      "version": 1
+    },
+    {
+      "part_req_id": "PART-REQ-103-STRUTS",
+      "ro_id": "RO-103",
+      "task_id": "TASK-103-01",
+      "oem_part_number": "OEM-STR-2021-PAIR",
+      "quantity": 2,
+      "vehicle_compatibility_ref": "ACES-TRUCK-2021-4WD",
+      "inventory_status": "IN_STOCK",
+      "usable_ready_tick": 96,
+      "version": 1
+    },
+    {
+      "part_req_id": "PART-REQ-104-SOLENOID",
+      "ro_id": "RO-104",
+      "task_id": "TASK-104-02",
+      "oem_part_number": "OEM-SOL-TRANS-2020",
+      "quantity": 1,
+      "vehicle_compatibility_ref": "ACES-CROSSOVER-2020-AWD",
+      "inventory_status": "IN_TRANSIT",
+      "usable_ready_tick": 198,
+      "version": 1
+    },
+    {
+      "part_req_id": "PART-REQ-105-HARNESS",
+      "ro_id": "RO-105",
+      "task_id": "TASK-105-01",
+      "oem_part_number": "OEM-EV-HAR-2023",
+      "quantity": 1,
+      "vehicle_compatibility_ref": "ACES-EV-2023-DUAL",
+      "inventory_status": "BACKORDERED",
+      "usable_ready_tick": null,
+      "version": 1
+    }
+  ],
+  "supplier_offers": [
+    {
+      "offer_id": "OFFER-104-S1",
+      "part_req_id": "PART-REQ-104-SOLENOID",
+      "supplier_id": "S1_HOTSHOT",
+      "supplier_name": "Regional Hotshot Dedicated Courier",
+      "unit_cost_usd": "120.00",
+      "freight_surcharge_usd": "37.00",
+      "quoted_eta_tick": 163,
+      "receiving_inspection_minutes": 10,
+      "usable_ready_tick": 165,
+      "quote_valid_until": "2026-11-18T18:00:00Z",
+      "quote_status": "ACTIVE",
+      "version": 1
+    },
+    {
+      "offer_id": "OFFER-104-S2",
+      "part_req_id": "PART-REQ-104-SOLENOID",
+      "supplier_id": "S2_SISTER_STORE",
+      "supplier_name": "Sister Store Inter-Dealer Ground Shuttle",
+      "unit_cost_usd": "120.00",
+      "freight_surcharge_usd": "0.00",
+      "quoted_eta_tick": 194,
+      "receiving_inspection_minutes": 20,
+      "usable_ready_tick": 198,
+      "quote_valid_until": "2026-11-18T18:00:00Z",
+      "quote_status": "ACTIVE",
+      "version": 1
+    }
+  ],
+  "metadata": {
+    "scenario_name": "S-MATH-01 Golden Synthetic Fixture",
+    "fixture_version": "1.0",
+    "classification": "SYNTHETIC_DATA_ONLY",
+    "authoritative_source_reference": "Technical Report Section 5.3 & Blueprint Section 10",
+    "simulation_horizon_ticks": 288,
+    "disruption_event": {
+      "disrupted_ro_id": "RO-104",
+      "disrupted_part_req_id": "PART-REQ-104-SOLENOID",
+      "trigger_tick": 159,
+      "trigger_time": "13:15",
+      "event_type": "SUPPLIER_ETA_SLIP",
+      "primary_supplier_delay_minutes": 180,
+      "affected_bay_id": "BAY-01",
+      "affected_vehicle_state": "IMMOBILIZED_ON_LIFT"
+    },
+    "economic_parameters": {
+      "nu_usd_per_hour_reference": "120.00",
+      "nu_usd_per_minute_reference": "2.00",
+      "nu_usd_per_tick_reference": "10.00",
+      "lambda_late_usd_per_minute": "0.50",
+      "lambda_late_usd_per_tick": "2.50",
+      "hotshot_incremental_freight_usd": "37.00",
+      "avoided_bay_blocked_minutes": 110,
+      "calculated_net_recovery_value_usd": "238.00"
+    },
+    "reconciliation_audit_notes": {
+      "INC-01": "RO-106 priority weight is 3 in catalog; disrupted calculation used weight 1 to yield 99 ticks, while recovered used weight 3 to yield 33 ticks. Target 99 vs 33 status: PENDING_RECONCILIATION.",
+      "INC-02": "RO-104/106 disrupted completions (tick 216/225) extend past shift end 204; authorized overtime modeled up to tick 228.",
+      "INC-03": "RO-104 36-tick total duration resolved into 12-tick completed teardown + 24-tick remaining reassembly."
+    }
+  }
+}
