@@ -56,6 +56,39 @@ class TaskExecutionProgressEvidence(BaseModel):
         ge=0,
         description="Explicit remaining work ticks. If missing for IN_PROGRESS/STALLED, fails closed.",
     )
+    is_assignment_locked: bool = Field(
+        default=True,
+        description="True if existing tech/bay assignment cannot legally be changed mid-operation",
+    )
+    occupied_start_tick: Optional[int] = Field(
+        default=None,
+        ge=0,
+        le=288,
+        description="Start tick of current in-progress execution interval",
+    )
+    occupied_end_tick: Optional[int] = Field(
+        default=None,
+        ge=0,
+        le=288,
+        description="End tick of current in-progress execution interval if known",
+    )
+
+
+class VehicleMovementEvidence(BaseModel):
+    """Verified operational evidence for a physical vehicle transport interval (C5)."""
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    movement_id: str = Field(..., min_length=1)
+    vehicle_id: str = Field(..., min_length=1)
+    ro_id: str = Field(..., min_length=1)
+    source_location: str = Field(..., description="e.g. HOLDING_LOT, STAGING_AREA, BAY-01")
+    destination_bay_id: str = Field(..., min_length=1)
+    movement_start_tick: int = Field(..., ge=0, le=288)
+    movement_end_tick: int = Field(..., ge=0, le=288)
+    assigned_resource_id: str = Field(..., min_length=1, description="Porter or technician ID executing move")
+    departure_confirmed: bool = Field(default=False)
+    arrival_confirmed: bool = Field(default=False)
+    vehicle_state: VehiclePhysicalState = Field(default=VehiclePhysicalState.ROLLABLE)
 
 
 class VehiclePhysicalEvidence(BaseModel):
@@ -68,7 +101,16 @@ class VehiclePhysicalEvidence(BaseModel):
     current_bay_id: Optional[str] = Field(default=None, description="Occupied bay if on lift or in bay")
     is_in_holding: bool = Field(default=False, description="True if parked in holding staging lot")
     vehicle_weight_lbs: Optional[int] = Field(default=None, gt=0, description="Gross vehicle weight rating in lbs")
-    fitment_verified: bool = Field(default=True, description="ACES/PIES parts fitment verified")
+    fitment_verified: Optional[bool] = Field(
+        default=None,
+        description="Explicit ACES/PIES parts fitment verified; None or False fails closed",
+    )
+    occupancy_start_tick: Optional[int] = Field(
+        default=None,
+        ge=0,
+        le=288,
+        description="Actual physical arrival/occupancy tick on lift/bay; avoids assuming horizon_start",
+    )
 
 
 class TechnicianFairnessEvidence(BaseModel):
@@ -101,6 +143,10 @@ class WorkshopEvidenceBundle(BaseModel):
     vehicle_evidence: Dict[str, VehiclePhysicalEvidence] = Field(
         default_factory=dict,
         description="vehicle_id (or ro_id) -> physical state and weight evidence",
+    )
+    vehicle_movements: Dict[str, VehicleMovementEvidence] = Field(
+        default_factory=dict,
+        description="vehicle_id or ro_id -> movement evidence",
     )
     technician_fairness: Dict[str, TechnicianFairnessEvidence] = Field(
         default_factory=dict,
@@ -136,3 +182,7 @@ class WorkshopEvidenceBundle(BaseModel):
         if not prog or prog.remaining_duration_ticks is None:
             return None
         return prog.remaining_duration_ticks
+
+    def get_vehicle_physical_evidence(self, vehicle_id: str, ro_id: Optional[str] = None) -> Optional[VehiclePhysicalEvidence]:
+        """Looks up vehicle physical evidence by vehicle_id or fallback ro_id."""
+        return self.vehicle_evidence.get(vehicle_id) or (self.vehicle_evidence.get(ro_id) if ro_id else None)

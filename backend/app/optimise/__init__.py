@@ -14,6 +14,7 @@ from app.optimise.evidence import (
     ManagerFreightApprovalEvidence,
     TaskExecutionProgressEvidence,
     TechnicianFairnessEvidence,
+    VehicleMovementEvidence,
     VehiclePhysicalEvidence,
     WorkshopEvidenceBundle,
 )
@@ -22,6 +23,7 @@ from app.optimise.models import (
     BayHourPriceSurface,
     BayHourShadowPrice,
     ObjectiveMetrics,
+    RepairOrderCompletionStatus,
     ScheduleResult,
     SchedulerTier,
     ShadowPriceStatus,
@@ -29,6 +31,7 @@ from app.optimise.models import (
 )
 from app.optimise.shadow_price import BayHourShadowPriceCalculator
 from app.optimise.supplemental_audit import (
+    CertificationStatus,
     SupplementalAuditOracle,
     SupplementalAuditResult,
 )
@@ -41,17 +44,20 @@ __all__ = [
     "BayHourShadowPriceCalculator",
     "SupplementalAuditOracle",
     "SupplementalAuditResult",
+    "CertificationStatus",
     "WorkshopEvidenceBundle",
     "CustomerAuthorizationEvidence",
     "ManagerFreightApprovalEvidence",
     "TaskExecutionProgressEvidence",
     "VehiclePhysicalEvidence",
+    "VehicleMovementEvidence",
     "TechnicianFairnessEvidence",
     "ScheduleResult",
     "ObjectiveMetrics",
     "SchedulerTier",
     "SolverStatus",
     "ShadowPriceStatus",
+    "RepairOrderCompletionStatus",
     "BayHourShadowPrice",
     "BayHourPriceSurface",
 ]

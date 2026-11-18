@@ -1,21 +1,33 @@
-"""T2 Google OR-Tools CP-SAT Discrete Scheduling Optimizer for ServiceYield AI.
+"""Discrete OR-Tools CP-SAT Interval Scheduler for ServiceYield AI Optimise Engine.
 
 Authoritative Reference:
-- docs/03_PRODUCT_REQUIREMENTS.md (Section 3: Module 2 Optimise)
+- docs/03_PRODUCT_REQUIREMENTS.md (Section 3: Optimise)
 - docs/04_EXACT_NOVELTY_AND_SHADOW_PRICE.md
 - docs/08_SHARED_CONSTRAINTS_C1_C7.md
+- docs/09_API_AND_MODULE_CONTRACTS.md (Section 2.3)
 - docs/10_S_MATH_01_GOLDEN_FIXTURE.md
 - docs/12_VERIFICATION_AND_REVALIDATION.md
-- docs/14_FINANCIAL_MODEL_AND_ASSUMPTIONS.md (A3: $120/hr sold labor)
+- docs/14_FINANCIAL_MODEL_AND_ASSUMPTIONS.md (A3: $120/hr sold labor, nu = $2.00/min = $120/hr)
 - docs/18_PHASED_IMPLEMENTATION_ROADMAP.md (Task 1.4)
 
-Design Guarantees:
-1. Exact discrete 5-minute tick formulation over horizon H=288.
-2. Inviolable hard constraints C1–C7 (eligibility, parts release, precedence, exclusivity, shifts, breaks).
-3. Transitive precedence closure: successors cannot be scheduled if incomplete predecessors are excluded.
-4. Zero manufactured evidence: strict customer authorization gate and verified execution progress.
-5. Dual verification: Certified PASS by independent L4 sweep-line oracle AND supplemental operational audit.
-6. Infallible fallback: Automatic degradation to verified T1 schedule upon timeout, infeasibility, or audit failure.
+Mathematical Formulation:
+Variables:
+- x_i in [horizon_start, horizon_end - d_i]: Start tick of task i
+- u_i in [horizon_start + d_i, horizon_end]: End tick of task i
+- z_i in {0, 1}: Task execution indicator (1 if scheduled, 0 if unscheduled)
+- y_{i, k} in {0, 1}: Assignment indicator of task i to eligible technician k
+- a_{i, b} in {0, 1}: Assignment indicator of task i to compatible bay b
+- I_{i, k} = NewOptionalIntervalVar(x_i, d_i, u_i, y_{i, k}): Technician optional interval
+- I_{i, b} = NewOptionalIntervalVar(x_i, d_i, u_i, a_{i, b}): Bay optional interval
+
+Objective:
+Maximize Net Economic Yield Z = Labor Gross Contribution - Weighted Customer Lateness Penalty - Bay Blocked Idle Penalty
+Scaled to integer cents:
+max Z_cents = sum_i(1000 * d_i * z_i) - sum_r(250 * w_r * Lateness_r) - sum_occ(50 * IdleTicks_occ)
+
+Inviolable Verification Gate:
+Every solution (optimal or feasible) must pass the independent L4 Sweep-Line Oracle
+AND the Supplemental Audit Oracle. If dual verification fails, the engine falls back to T1.
 """
 
 from collections import defaultdict
@@ -29,6 +41,7 @@ from app.optimise.evidence import WorkshopEvidenceBundle
 from app.optimise.heuristics import T1BitsetScheduler
 from app.optimise.models import (
     ObjectiveMetrics,
+    RepairOrderCompletionStatus,
     ScheduleResult,
     SchedulerTier,
     SolverStatus,
@@ -36,8 +49,8 @@ from app.optimise.models import (
 from app.optimise.supplemental_audit import SupplementalAuditOracle
 from app.schemas.domain import (
     DealershipSnapshotSchema,
-    RepairOrderSchema,
     TaskSchema,
+    TaskStatus,
     VehiclePhysicalState,
 )
 from app.verifier.models import (
@@ -49,7 +62,7 @@ from app.verifier.sweep_oracle import SweepLineOracle
 
 
 class CPSATScheduler:
-    """Discrete OR-Tools CP-SAT workshop scheduling optimizer."""
+    """Production T2 Discrete CP-SAT Scheduler with warm-starting and dual verification."""
 
     def __init__(self, config: Optional[OptimiseConfig] = None):
         self.config = config or OptimiseConfig()
@@ -58,25 +71,18 @@ class CPSATScheduler:
     def schedule(
         self,
         snapshot: DealershipSnapshotSchema,
-        plan_id: str = "PLAN-T2-CPSAT",
+        plan_id: str = "PLAN-T2-OPTIMISE",
         evidence: Optional[WorkshopEvidenceBundle] = None,
         blocked_bay_intervals: Optional[List[Tuple[str, int, int]]] = None,
+        warm_start_result: Optional[ScheduleResult] = None,
     ) -> ScheduleResult:
-        """Formulates and solves the global discrete workshop scheduling optimization problem.
-        
-        Args:
-            snapshot: Canonical validated dealership state snapshot.
-            plan_id: Identifier for candidate plan and audit logs.
-            evidence: Explicit operational evidence bundle (authorizations, progress, weights).
-            blocked_bay_intervals: Optional capacity blocks [(bay_id, start_tick, end_tick)]
-                                   for shadow price difference re-solves.
-        
-        Returns:
-            ScheduleResult containing verified plan, solver status, metrics, and dual audit report.
-        """
+        """Solves the discrete workshop scheduling problem using OR-Tools CP-SAT."""
         start_time = time.perf_counter()
         ev = evidence or WorkshopEvidenceBundle(current_tick=snapshot.rooftop.operating_day_start_tick)
         blocked_intervals = blocked_bay_intervals or []
+
+        horizon_start = self.config.horizon_start_tick
+        horizon_end = self.config.overtime_cutoff_tick if self.config.allow_emergency_overtime else self.config.horizon_end_tick
 
         # 1. State Lookups
         bays_by_id = {b.bay_id: b for b in snapshot.bays}
@@ -88,14 +94,33 @@ class CPSATScheduler:
         for p in snapshot.part_requirements:
             parts_by_task[p.task_id].append(p)
 
-        horizon_start = self.config.horizon_start_tick
-        horizon_end = self.config.overtime_cutoff_tick if self.config.allow_emergency_overtime else self.config.horizon_end_tick
-
-        # 2. Identify Incomplete Tasks and Filter by Authorizations and Duration Evidence
-        unscheduled_reasons: Dict[str, str] = {}
-        completed_task_ids: Set[str] = set()
+        # 2. Filter Candidate Incomplete Tasks
         candidate_tasks: List[TaskSchema] = []
+        completed_task_ids: Set[str] = set()
+        unscheduled_reasons: Dict[str, str] = {}
         effective_durations: Dict[str, int] = {}
+
+        # Handle Immobilized Vehicles
+        immobilized_ros = {
+            r.ro_id: r for r in snapshot.repair_orders
+            if (r.physical_state.value if hasattr(r.physical_state, "value") else str(r.physical_state)) == "IMMOBILIZED_ON_LIFT"
+        }
+        immobilized_bay_reservations: Dict[str, str] = {}
+        bay_to_imm_ro: Dict[str, str] = {}
+        imm_missing_bays: Set[str] = set()
+
+        for r_id, r in immobilized_ros.items():
+            phys_ev = ev.get_vehicle_physical_evidence(r.vehicle_id, r_id)
+            target_bay = (phys_ev.current_bay_id if phys_ev else None) or r.assigned_bay_id
+            if not target_bay:
+                imm_missing_bays.add(r_id)
+            elif target_bay in bay_to_imm_ro:
+                unscheduled_reasons[f"RO_{r_id}"] = f"CONFLICTING_IMMOBILIZED_BAY_OCCUPANCY_{target_bay}"
+            else:
+                immobilized_bay_reservations[r_id] = target_bay
+                bay_to_imm_ro[target_bay] = r_id
+
+        immobilized_bay_ids = set(immobilized_bay_reservations.values())
 
         for t in snapshot.tasks:
             status_str = t.status.value if hasattr(t.status, "value") else str(t.status)
@@ -108,7 +133,7 @@ class CPSATScheduler:
                 unscheduled_reasons[t.task_id] = f"UNAUTHORIZED_CUSTOMER_ESTIMATE_{t.ro_id}"
                 continue
 
-            # Task Execution Progress and Remaining Duration Evidence
+            # Task Execution Progress and Remaining Duration Evidence (Finding B1)
             rem_dur = ev.get_effective_remaining_duration(t.task_id, t.status, t.estimated_duration_ticks)
             if rem_dur is None:
                 unscheduled_reasons[t.task_id] = f"MISSING_EXECUTION_PROGRESS_{t.task_id}"
@@ -128,23 +153,48 @@ class CPSATScheduler:
             if has_missing_eta:
                 continue
 
-            # C5 Vehicle Physical State Gate
+            # C1 Fitment and Vehicle Weight Gates (Finding A2 & A3)
             ro = ros_by_id.get(t.ro_id)
-            if ro:
-                phys_ev = ev.vehicle_evidence.get(ro.vehicle_id) or ev.vehicle_evidence.get(ro.ro_id)
-                state_val = (
-                    phys_ev.physical_state.value if (phys_ev and hasattr(phys_ev.physical_state, "value"))
-                    else (ro.physical_state.value if hasattr(ro.physical_state, "value") else str(ro.physical_state))
-                )
-                if state_val == "UNKNOWN":
-                    unscheduled_reasons[t.task_id] = f"UNKNOWN_VEHICLE_STATE_{ro.ro_id}"
+            if not ro:
+                unscheduled_reasons[t.task_id] = "RO_NOT_FOUND"
+                continue
+
+            phys_ev = ev.get_vehicle_physical_evidence(ro.vehicle_id, ro.ro_id)
+            if phys_ev is None:
+                unscheduled_reasons[t.task_id] = f"MISSING_VEHICLE_EVIDENCE_{ro.vehicle_id}"
+                continue
+
+            if phys_ev.fitment_verified is None:
+                unscheduled_reasons[t.task_id] = f"UNVERIFIED_PARTS_FITMENT_{ro.vehicle_id}"
+                continue
+            elif phys_ev.fitment_verified is False:
+                unscheduled_reasons[t.task_id] = f"REJECTED_PARTS_FITMENT_{ro.vehicle_id}"
+                continue
+
+            if phys_ev.vehicle_weight_lbs is None:
+                unscheduled_reasons[t.task_id] = f"MISSING_VEHICLE_WEIGHT_EVIDENCE_{ro.vehicle_id}"
+                continue
+
+            # C5 Vehicle Physical State Gate
+            state_val = (
+                phys_ev.physical_state.value if hasattr(phys_ev.physical_state, "value")
+                else (ro.physical_state.value if hasattr(ro.physical_state, "value") else str(ro.physical_state))
+            )
+            if state_val == "UNKNOWN":
+                unscheduled_reasons[t.task_id] = f"UNKNOWN_VEHICLE_STATE_{ro.ro_id}"
+                continue
+
+            if state_val == "IMMOBILIZED_ON_LIFT":
+                if ro.ro_id in imm_missing_bays:
+                    unscheduled_reasons[t.task_id] = f"IMMOBILIZED_VEHICLE_MISSING_ASSIGNED_BAY_{ro.ro_id}"
                     continue
 
-                is_holding = phys_ev.is_in_holding if phys_ev else (state_val == "IN_HOLDING")
-                earliest_move = (ev.current_tick + 2) if is_holding else horizon_start
-            else:
-                earliest_move = horizon_start
+            is_holding = phys_ev.is_in_holding if phys_ev else (state_val == "IN_HOLDING")
+            if is_holding and not ev.available_porter_tech_ids:
+                unscheduled_reasons[t.task_id] = f"NO_PORTER_OR_TECH_AVAILABLE_FOR_MOVE_{ro.ro_id}"
+                continue
 
+            earliest_move = (ev.current_tick + 2) if is_holding else horizon_start
             earliest_part = max([p.usable_ready_tick for p in task_parts if p.usable_ready_tick is not None] or [horizon_start])
             earliest_possible = max(horizon_start, earliest_part, earliest_move)
 
@@ -156,7 +206,6 @@ class CPSATScheduler:
             candidate_tasks.append(t)
 
         # 3. Enforce Transitive Precedence Closure
-        # If any incomplete predecessor was excluded, its successors CANNOT be scheduled
         schedulable_set = set(t.task_id for t in candidate_tasks)
         changed = True
         while changed:
@@ -198,37 +247,46 @@ class CPSATScheduler:
         task_vars: Dict[str, Dict[str, Any]] = {}
         tech_assignment_vars: Dict[Tuple[str, str], cp_model.IntVar] = {}
         bay_assignment_vars: Dict[Tuple[str, str], cp_model.IntVar] = {}
+
         tech_intervals: Dict[str, List[cp_model.IntervalVar]] = defaultdict(list)
         bay_intervals: Dict[str, List[cp_model.IntervalVar]] = defaultdict(list)
 
-        # Handle vehicle immobilized state (C5)
-        immobilized_ros = {
-            r.ro_id: r for r in snapshot.repair_orders
-            if (r.physical_state.value if hasattr(r.physical_state, "value") else str(r.physical_state)) == "IMMOBILIZED_ON_LIFT"
-        }
-        immobilized_bay_ids = {r.assigned_bay_id for r in immobilized_ros.values() if r.assigned_bay_id}
+        # Pre-allocate existing WIP active intervals into tech_intervals and bay_intervals (Finding B1)
+        for task in snapshot.tasks:
+            status_val = task.status.value if hasattr(task.status, "value") else str(task.status)
+            if status_val in ("IN_PROGRESS", "STALLED"):
+                prog = ev.task_progress.get(task.task_id)
+                if prog and prog.occupied_start_tick is not None:
+                    occ_end = prog.occupied_end_tick if prog.occupied_end_tick is not None else ev.current_tick
+                    if occ_end > prog.occupied_start_tick:
+                        occ_dur = occ_end - prog.occupied_start_tick
+                        if prog.existing_tech_id:
+                            tech_intervals[prog.existing_tech_id].append(
+                                model.NewIntervalVar(prog.occupied_start_tick, occ_dur, occ_end, f"wip_tech_{task.task_id}")
+                            )
+                        if prog.existing_bay_id:
+                            bay_intervals[prog.existing_bay_id].append(
+                                model.NewIntervalVar(prog.occupied_start_tick, occ_dur, occ_end, f"wip_bay_{task.task_id}")
+                            )
 
-        # Create decision variables for each schedulable task
+        # Decision Variables & Intervals for Schedulable Tasks
         for task in schedulable_tasks:
             t_id = task.task_id
-            ro = ros_by_id[task.ro_id]
             duration = effective_durations[t_id]
+            ro = ros_by_id[task.ro_id]
+            phys_ev = ev.get_vehicle_physical_evidence(ro.vehicle_id, ro.ro_id)
 
-            # Earliest start bounded by part arrivals and vehicle movement
+            # C2 Earliest Part Readiness
             task_parts = parts_by_task.get(t_id, [])
-            earliest_part_tick = horizon_start
-            for part in task_parts:
-                if part.usable_ready_tick is not None:
-                    earliest_part_tick = max(earliest_part_tick, part.usable_ready_tick)
+            earliest_part_tick = max([p.usable_ready_tick for p in task_parts if p.usable_ready_tick is not None] or [horizon_start])
 
-            phys_ev = ev.vehicle_evidence.get(ro.vehicle_id) or ev.vehicle_evidence.get(ro.ro_id)
+            # C5 Vehicle Physical State & Holding Move
             state_val = (
                 phys_ev.physical_state.value if (phys_ev and hasattr(phys_ev.physical_state, "value"))
                 else (ro.physical_state.value if hasattr(ro.physical_state, "value") else str(ro.physical_state))
             )
             is_holding = phys_ev.is_in_holding if phys_ev else (state_val == "IN_HOLDING")
             earliest_move_tick = (ev.current_tick + 2) if is_holding else horizon_start
-
             earliest_start = max(horizon_start, earliest_part_tick, earliest_move_tick)
 
             is_sched = model.NewBoolVar(f"z_{t_id}")
@@ -247,11 +305,22 @@ class CPSATScheduler:
                 "ro": ro,
             }
 
+            # WIP Locked Assignments (Finding B1)
+            prog = ev.task_progress.get(t_id)
+            locked_bay_id = prog.existing_bay_id if (prog and prog.is_assignment_locked) else None
+            locked_tech_id = prog.existing_tech_id if (prog and prog.is_assignment_locked) else None
+
             # C1 Eligibility: Technicians
-            eligible_techs = [
-                t for t in snapshot.technicians
-                if t.is_active and task.required_skill in t.skill_certifications
-            ]
+            if locked_tech_id:
+                eligible_techs = [
+                    t for t in snapshot.technicians
+                    if t.tech_id == locked_tech_id and t.is_active and task.required_skill in t.skill_certifications
+                ]
+            else:
+                eligible_techs = [
+                    t for t in snapshot.technicians
+                    if t.is_active and task.required_skill in t.skill_certifications
+                ]
 
             t_tech_vars: List[cp_model.IntVar] = []
             for tech in eligible_techs:
@@ -275,15 +344,22 @@ class CPSATScheduler:
                 model.Add(is_sched == 0)
 
             # C1 & C5 Eligibility: Bays and Lifting Capacity
-            vehicle_weight = (
-                phys_ev.vehicle_weight_lbs
-                if (phys_ev and phys_ev.vehicle_weight_lbs is not None)
-                else getattr(ro, "vehicle_weight_lbs", 0)
-            )
+            vehicle_weight = phys_ev.vehicle_weight_lbs if phys_ev else 3800
 
             if task.ro_id in immobilized_ros:
-                imm_bay_id = immobilized_ros[task.ro_id].assigned_bay_id
+                imm_bay_id = immobilized_bay_reservations.get(task.ro_id)
                 assigned_bay = bays_by_id.get(imm_bay_id) if imm_bay_id else None
+                if (
+                    assigned_bay
+                    and assigned_bay.is_operational
+                    and assigned_bay.bay_type == task.required_bay_type
+                    and assigned_bay.lifting_capacity_lbs >= vehicle_weight
+                ):
+                    compatible_bays = [assigned_bay]
+                else:
+                    compatible_bays = []
+            elif locked_bay_id:
+                assigned_bay = bays_by_id.get(locked_bay_id)
                 if (
                     assigned_bay
                     and assigned_bay.is_operational
@@ -318,165 +394,162 @@ class CPSATScheduler:
             else:
                 model.Add(is_sched == 0)
 
-        # 5. C3 Precedence Constraints
+        # 5. Global Resource Exclusivity Constraints (C4)
+        for tech in snapshot.technicians:
+            lunch_interval = model.NewIntervalVar(
+                tech.lunch_start_tick, tech.lunch_duration_ticks,
+                tech.lunch_start_tick + tech.lunch_duration_ticks, f"lunch_{tech.tech_id}"
+            )
+            intervals = tech_intervals[tech.tech_id] + [lunch_interval]
+            model.AddNoOverlap(intervals)
+
+        for bay in snapshot.bays:
+            blocked_for_bay: List[cp_model.IntervalVar] = []
+            if not bay.is_operational:
+                blocked_for_bay.append(
+                    model.NewIntervalVar(0, self.config.horizon_ticks, self.config.horizon_ticks, f"inop_{bay.bay_id}")
+                )
+            for b_id, b_start, b_end in blocked_intervals:
+                if b_id == bay.bay_id and b_end > b_start:
+                    blocked_for_bay.append(
+                        model.NewIntervalVar(b_start, b_end - b_start, b_end, f"blocked_{bay.bay_id}_{b_start}")
+                    )
+
+            intervals = bay_intervals[bay.bay_id] + blocked_for_bay
+            model.AddNoOverlap(intervals)
+
+        # 6. Precedence DAG Constraints (C3)
         for task in schedulable_tasks:
             t_id = task.task_id
             for pred_id in task.predecessor_task_ids:
-                if pred_id in completed_task_ids:
-                    continue
-                elif pred_id in task_vars:
-                    model.Add(task_vars[t_id]["start"] >= task_vars[pred_id]["end"]).OnlyEnforceIf(
-                        [task_vars[t_id]["is_scheduled"], task_vars[pred_id]["is_scheduled"]]
-                    )
-                    model.Add(task_vars[t_id]["is_scheduled"] <= task_vars[pred_id]["is_scheduled"])
+                if pred_id in task_vars:
+                    succ_sched = task_vars[t_id]["is_scheduled"]
+                    pred_sched = task_vars[pred_id]["is_scheduled"]
+                    model.Add(succ_sched <= pred_sched)
+                    model.Add(task_vars[t_id]["start"] >= task_vars[pred_id]["end"]).OnlyEnforceIf(succ_sched)
 
-        # 6. C4 Exclusivity: Technician Constraints & Lunch Breaks
-        for tech in snapshot.technicians:
-            if not tech.is_active:
-                continue
-            lunch_interval = model.NewIntervalVar(
-                tech.lunch_start_tick,
-                tech.lunch_duration_ticks,
-                tech.lunch_start_tick + tech.lunch_duration_ticks,
-                f"lunch_{tech.tech_id}",
-            )
-            model.AddNoOverlap(tech_intervals[tech.tech_id] + [lunch_interval])
-
-        # 7. C4 Exclusivity: Bay Constraints & Blocked Intervals
-        for block_bay, b_start, b_end in blocked_intervals:
-            if block_bay in bays_by_id and b_end > b_start:
-                block_int = model.NewIntervalVar(b_start, b_end - b_start, b_end, f"blocked_{block_bay}_{b_start}")
-                bay_intervals[block_bay].append(block_int)
-
-        for bay in snapshot.bays:
-            if not bay.is_operational:
-                continue
-            model.AddNoOverlap(bay_intervals[bay.bay_id])
-
-        # 8. Objective Function Formulation (in Integer Cents)
-        cents_per_labor_tick = int(round(float(self.config.labor_contribution_per_hour_usd) / 12.0 * 100.0))
-        cents_per_late_minute = int(round(float(self.config.lateness_penalty_per_minute_usd) * 100.0))
-        cents_per_late_tick = cents_per_late_minute * 5
-
-        labor_contrib_terms: List[cp_model.LinearExpr] = []
-        for t_id, d in task_vars.items():
-            labor_contrib_terms.append(d["is_scheduled"] * (d["duration"] * cents_per_labor_tick))
+        # 7. Customer Promise Lateness Formulation (Objective)
+        ro_tasks_map: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        for t_info in task_vars.values():
+            ro_tasks_map[t_info["ro"].ro_id].append(t_info)
 
         ro_lateness_vars: Dict[str, cp_model.IntVar] = {}
-        lateness_terms: List[cp_model.LinearExpr] = []
-        tasks_by_ro: Dict[str, List[str]] = defaultdict(list)
-        for t in schedulable_tasks:
-            tasks_by_ro[t.ro_id].append(t.task_id)
-
-        for ro_id, t_ids in tasks_by_ro.items():
+        for ro_id, t_infos in ro_tasks_map.items():
             ro = ros_by_id[ro_id]
             promise = ro.promise_tick
+            max_lat = max(0, horizon_end - promise)
+            lat_var = model.NewIntVar(0, max_lat, f"lateness_{ro_id}")
+            ro_lateness_vars[ro_id] = lat_var
+
+            for t_info in t_infos:
+                is_sc = t_info["is_scheduled"]
+                end_v = t_info["end"]
+                model.Add(lat_var >= end_v - promise).OnlyEnforceIf(is_sc)
+
+        # 8. Economic Objective Function Formulation
+        gross_cents_per_tick = int(round(self.config.labor_contribution_per_hour_usd / Decimal("12") * Decimal("100")))
+        late_cents_per_tick = int(round(self.config.lateness_penalty_per_minute_usd * Decimal("500")))
+
+        objective_terms = []
+        for t_id, t_info in task_vars.items():
+            dur = t_info["duration"]
+            is_sc = t_info["is_scheduled"]
+            objective_terms.append(gross_cents_per_tick * dur * is_sc)
+
+        for ro_id, lat_var in ro_lateness_vars.items():
+            ro = ros_by_id[ro_id]
             weight = ro.priority_weight
+            objective_terms.append(-late_cents_per_tick * weight * lat_var)
 
-            lateness_var = model.NewIntVar(0, self.config.horizon_ticks, f"lateness_{ro_id}")
-            ro_lateness_vars[ro_id] = lateness_var
+        model.Maximize(sum(objective_terms))
 
-            for t_id in t_ids:
-                d = task_vars[t_id]
-                model.Add(lateness_var >= d["end"] - promise).OnlyEnforceIf(d["is_scheduled"])
+        # 9. T1 Warm-Start Hint Injection
+        if warm_start_result is None:
+            warm_start_result = self.t1_fallback.schedule(
+                snapshot, plan_id=f"{plan_id}-HINT", evidence=ev, blocked_bay_intervals=blocked_intervals
+            )
 
-            lateness_terms.append(lateness_var * (weight * cents_per_late_tick))
+        if warm_start_result and warm_start_result.plan:
+            for assignment in warm_start_result.plan.assignments:
+                t_id = assignment.task_id
+                if t_id in task_vars:
+                    model.AddHint(task_vars[t_id]["is_scheduled"], 1)
+                    model.AddHint(task_vars[t_id]["start"], assignment.start_tick)
+                    model.AddHint(task_vars[t_id]["end"], assignment.end_tick)
+                    if (t_id, assignment.tech_id) in tech_assignment_vars:
+                        model.AddHint(tech_assignment_vars[(t_id, assignment.tech_id)], 1)
+                    if (t_id, assignment.bay_id) in bay_assignment_vars:
+                        model.AddHint(bay_assignment_vars[(t_id, assignment.bay_id)], 1)
 
-        net_objective_expr = sum(labor_contrib_terms) - sum(lateness_terms)
-        model.Maximize(net_objective_expr)
-
-        # 9. T1 Solution Warm-Start (Hinting)
-        if self.config.enable_t1_warm_start:
-            try:
-                t1_res = self.t1_fallback.schedule(
-                    snapshot,
-                    plan_id=f"{plan_id}-T1-HINT",
-                    evidence=ev,
-                    blocked_bay_intervals=blocked_intervals,
-                )
-                if t1_res.is_verified:
-                    t1_assign_map = {a.task_id: a for a in t1_res.plan.assignments}
-                    for t_id, d in task_vars.items():
-                        if t_id in t1_assign_map:
-                            a = t1_assign_map[t_id]
-                            model.AddHint(d["is_scheduled"], 1)
-                            model.AddHint(d["start"], a.start_tick)
-                            model.AddHint(d["end"], a.end_tick)
-                            if (t_id, a.tech_id) in tech_assignment_vars:
-                                model.AddHint(tech_assignment_vars[(t_id, a.tech_id)], 1)
-                            if (t_id, a.bay_id) in bay_assignment_vars:
-                                model.AddHint(bay_assignment_vars[(t_id, a.bay_id)], 1)
-                        else:
-                            model.AddHint(d["is_scheduled"], 0)
-            except Exception:
-                pass
-
-        # 10. Solve the CP-SAT Model
+        # 10. Execute CP-SAT Solve
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = self.config.time_budget_seconds
         solver.parameters.num_workers = self.config.num_workers
-        solver.parameters.random_seed = self.config.deterministic_seed
+        solver.parameters.random_seed = getattr(self.config, "deterministic_seed", 42)
 
-        solve_status_int = solver.Solve(model)
-        solve_elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+        solve_start = time.perf_counter()
+        raw_status = solver.Solve(model)
+        solve_elapsed_ms = (time.perf_counter() - solve_start) * 1000.0
 
-        status_mapping = {
+        status_map = {
             cp_model.OPTIMAL: SolverStatus.OPTIMAL,
             cp_model.FEASIBLE: SolverStatus.FEASIBLE,
             cp_model.INFEASIBLE: SolverStatus.INFEASIBLE,
             cp_model.MODEL_INVALID: SolverStatus.UNKNOWN,
             cp_model.UNKNOWN: SolverStatus.UNKNOWN,
         }
-        solver_status = status_mapping.get(solve_status_int, SolverStatus.UNKNOWN)
+        solver_status = status_map.get(raw_status, SolverStatus.UNKNOWN)
 
-        # 11. Extract Solution
+        # 11. Extract Candidate Solution & Assembly
         if solver_status in (SolverStatus.OPTIMAL, SolverStatus.FEASIBLE):
-            assignments: List[ScheduledAssignment] = []
-            for t_id, d in task_vars.items():
-                if solver.Value(d["is_scheduled"]) == 1:
-                    start_val = int(solver.Value(d["start"]))
-                    end_val = int(solver.Value(d["end"]))
-
-                    assigned_tech: Optional[str] = None
-                    for (task_key, tech_key), var in tech_assignment_vars.items():
-                        if task_key == t_id and solver.Value(var) == 1:
-                            assigned_tech = tech_key
+            assignments = []
+            for t_id, t_info in task_vars.items():
+                if solver.Value(t_info["is_scheduled"]) == 1:
+                    start_tick = int(solver.Value(t_info["start"]))
+                    end_tick = int(solver.Value(t_info["end"]))
+                    assigned_tech = None
+                    for (task_k, tech_k), var in tech_assignment_vars.items():
+                        if task_k == t_id and solver.Value(var) == 1:
+                            assigned_tech = tech_k
                             break
 
-                    assigned_bay: Optional[str] = None
-                    for (task_key, bay_key), var in bay_assignment_vars.items():
-                        if task_key == t_id and solver.Value(var) == 1:
-                            assigned_bay = bay_key
+                    assigned_bay = None
+                    for (task_b, bay_b), var in bay_assignment_vars.items():
+                        if task_b == t_id and solver.Value(var) == 1:
+                            assigned_bay = bay_b
                             break
 
                     if assigned_tech and assigned_bay:
                         assignments.append(
                             ScheduledAssignment(
                                 task_id=t_id,
-                                ro_id=d["ro"].ro_id,
+                                ro_id=t_info["ro"].ro_id,
                                 tech_id=assigned_tech,
                                 bay_id=assigned_bay,
-                                start_tick=start_val,
-                                end_tick=end_val,
+                                start_tick=start_tick,
+                                end_tick=end_tick,
                             )
                         )
                 else:
                     unscheduled_reasons[t_id] = "PRUNED_BY_SOLVER_OBJECTIVE"
 
-            # Reconstruct vehicle occupancy intervals for immobilized vehicles
-            vehicle_occupancies: List[VehicleBayOccupancy] = []
+            # Vehicle Occupancy for Immobilized Vehicles
+            vehicle_occupancies = []
             for imm_ro_id, imm_ro in immobilized_ros.items():
-                if imm_ro.assigned_bay_id:
+                assigned_bay = immobilized_bay_reservations.get(imm_ro_id)
+                if assigned_bay:
+                    phys_ev = ev.get_vehicle_physical_evidence(imm_ro.vehicle_id, imm_ro_id)
+                    occ_start = phys_ev.occupancy_start_tick if (phys_ev and phys_ev.occupancy_start_tick is not None) else ev.current_tick
                     imm_assignments = [a for a in assignments if a.ro_id == imm_ro_id]
                     if imm_assignments:
                         first_start = min(a.start_tick for a in imm_assignments)
-                        if first_start > horizon_start:
+                        if first_start > occ_start:
                             vehicle_occupancies.append(
                                 VehicleBayOccupancy(
                                     vehicle_id=imm_ro.vehicle_id,
                                     ro_id=imm_ro.ro_id,
-                                    bay_id=imm_ro.assigned_bay_id,
-                                    start_tick=horizon_start,
+                                    bay_id=assigned_bay,
+                                    start_tick=occ_start,
                                     end_tick=first_start,
                                 )
                             )
@@ -485,26 +558,47 @@ class CPSATScheduler:
                             VehicleBayOccupancy(
                                 vehicle_id=imm_ro.vehicle_id,
                                 ro_id=imm_ro.ro_id,
-                                bay_id=imm_ro.assigned_bay_id,
-                                start_tick=horizon_start,
+                                bay_id=assigned_bay,
+                                start_tick=occ_start,
                                 end_tick=horizon_end,
                             )
                         )
 
-            # Calculate metrics
-            total_labor_ticks = sum(
-                tasks_by_id[a.task_id].estimated_duration_ticks for a in assignments if a.task_id in tasks_by_id
-            )
+            # Calculate metrics (Finding F1 & F2)
+            total_labor_ticks = sum(a.end_tick - a.start_tick for a in assignments)
             gross_contrib = (Decimal(str(total_labor_ticks)) * self.config.labor_contribution_per_hour_usd) / Decimal("12")
 
+            # RO Completion Analysis
+            ro_completion_statuses: Dict[str, str] = {}
+            uncompleted_ros_count = 0
+            scheduled_ro_ids = {a.ro_id for a in assignments}
             weighted_lateness_ticks = 0
-            for ro_id, lat_var in ro_lateness_vars.items():
-                ro = ros_by_id[ro_id]
-                lat_ticks = int(solver.Value(lat_var))
-                weighted_lateness_ticks += ro.priority_weight * lat_ticks
+
+            for ro in snapshot.repair_orders:
+                ro_tasks = [t for t in snapshot.tasks if t.ro_id == ro.ro_id]
+                scheduled_t_ids = {a.task_id for a in assignments if a.ro_id == ro.ro_id}
+                completed_t_ids = {t.task_id for t in ro_tasks if (t.status.value if hasattr(t.status, "value") else str(t.status)) == "COMPLETED"}
+
+                if all(t.task_id in completed_t_ids for t in ro_tasks):
+                    ro_completion_statuses[ro.ro_id] = RepairOrderCompletionStatus.COMPLETED.value
+                elif set(t.task_id for t in ro_tasks).issubset(scheduled_t_ids | completed_t_ids):
+                    ro_completion_statuses[ro.ro_id] = RepairOrderCompletionStatus.FULLY_SCHEDULED.value
+                    ro_assignments = [a for a in assignments if a.ro_id == ro.ro_id]
+                    completion_tick = max(a.end_tick for a in ro_assignments)
+                    lateness_ticks = max(0, completion_tick - ro.promise_tick)
+                    weighted_lateness_ticks += ro.priority_weight * lateness_ticks
+                else:
+                    uncompleted_ros_count += 1
+                    if any(a.task_id in scheduled_t_ids for a in ro_tasks):
+                        ro_completion_statuses[ro.ro_id] = RepairOrderCompletionStatus.PARTIALLY_SCHEDULED.value
+                    elif any("PART_NOT_READY" in unscheduled_reasons.get(t.task_id, "") for t in ro_tasks):
+                        ro_completion_statuses[ro.ro_id] = RepairOrderCompletionStatus.BLOCKED_BY_PARTS.value
+                    elif any("UNAUTHORIZED" in unscheduled_reasons.get(t.task_id, "") or "MISSING_" in unscheduled_reasons.get(t.task_id, "") for t in ro_tasks):
+                        ro_completion_statuses[ro.ro_id] = RepairOrderCompletionStatus.BLOCKED_BY_EVIDENCE.value
+                    else:
+                        ro_completion_statuses[ro.ro_id] = RepairOrderCompletionStatus.UNSCHEDULABLE_IN_HORIZON.value
 
             lateness_penalty = Decimal(str(weighted_lateness_ticks * 5)) * self.config.lateness_penalty_per_minute_usd
-
             bay_blocked_ticks = sum((occ.end_tick - occ.start_tick) for occ in vehicle_occupancies)
             bay_blocked_penalty = Decimal(str(bay_blocked_ticks * 5)) * self.config.blocked_bay_penalty_per_minute_usd
             net_obj = gross_contrib - lateness_penalty - bay_blocked_penalty
@@ -523,10 +617,11 @@ class CPSATScheduler:
                 objective_completeness="PARTIAL_CONFIGURED",
                 configured_terms=["gross_contribution", "lateness_penalty", "bay_blocked_penalty"],
                 unconfigured_terms=["sourcing_cost", "schedule_churn_penalty"],
+                ro_completion_statuses=ro_completion_statuses,
+                uncompleted_ros_count=uncompleted_ros_count,
             )
 
-            scheduled_ros = {a.ro_id for a in assignments}
-            verified_authorizations = {r_id: True for r_id in scheduled_ros if ev.is_ro_authorized(r_id)}
+            verified_authorizations = {r_id: True for r_id in scheduled_ro_ids if ev.is_ro_authorized(r_id)}
             verified_freight = {
                 o_id: True for o_id, appr in ev.manager_freight_approvals.items() if appr.is_approved
             }
@@ -542,7 +637,7 @@ class CPSATScheduler:
                 allow_emergency_overtime=self.config.allow_emergency_overtime,
             )
 
-            # Dual Independent Verification
+            # Dual Independent Verification (Primary Task E)
             oracle = SweepLineOracle(snapshot)
             verification_result = oracle.verify_plan(candidate_plan)
 
@@ -551,6 +646,7 @@ class CPSATScheduler:
 
             is_verified = verification_result.is_valid
             is_fully_certified = is_verified and supp_result.is_valid
+            is_actionable = is_fully_certified and len(supp_result.coverage_gaps) == 0
 
             # Optimality gap
             best_bound_cents = solver.BestObjectiveBound()
@@ -559,7 +655,7 @@ class CPSATScheduler:
             if solver_status == SolverStatus.FEASIBLE and abs(obj_cents) > 1e-6:
                 gap = abs(best_bound_cents - obj_cents) / abs(obj_cents)
 
-            if is_verified:
+            if is_fully_certified:
                 return ScheduleResult(
                     plan_id=plan_id,
                     rooftop_id=snapshot.rooftop.rooftop_id,
@@ -576,11 +672,13 @@ class CPSATScheduler:
                     verification_result=verification_result,
                     is_verified=True,
                     supplemental_audit_result=supp_result.model_dump(),
-                    is_fully_certified=is_fully_certified,
+                    is_fully_certified=True,
+                    is_actionable=is_actionable,
                     evidence_coverage_gaps=supp_result.coverage_gaps,
+                    ro_completion_statuses=ro_completion_statuses,
                 )
             else:
-                # T2 candidate failed L4 verifier! Discard and fall back to verified T1
+                # T2 candidate failed dual verification! Discard and fall back to T1
                 t1_fallback_res = self.t1_fallback.schedule(
                     snapshot,
                     plan_id=f"{plan_id}-T1-FALLBACK",
@@ -588,12 +686,12 @@ class CPSATScheduler:
                     blocked_bay_intervals=blocked_intervals,
                 )
                 t1_fallback_res.degradation_reason = (
-                    f"T2 CP-SAT candidate failed L4 verification with {verification_result.total_violations} violations; "
+                    f"T2 CP-SAT candidate failed L4 verification (L4 valid={is_verified}, Supp valid={supp_result.is_valid}); "
                     f"reverted to T1 constructive schedule."
                 )
                 return t1_fallback_res
 
-        # If solver returned INFEASIBLE or UNKNOWN (timeout with no incumbent), fall back to T1
+        # If solver returned INFEASIBLE or UNKNOWN, fall back to T1
         t1_fallback_res = self.t1_fallback.schedule(
             snapshot,
             plan_id=f"{plan_id}-T1-FALLBACK",

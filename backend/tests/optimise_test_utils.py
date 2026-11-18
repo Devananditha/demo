@@ -12,6 +12,7 @@ from app.optimise.evidence import (
     ManagerFreightApprovalEvidence,
     TaskExecutionProgressEvidence,
     TechnicianFairnessEvidence,
+    VehicleMovementEvidence,
     VehiclePhysicalEvidence,
     WorkshopEvidenceBundle,
 )
@@ -50,32 +51,36 @@ def make_synthetic_evidence(
     progress_evidence = {}
     if with_progress:
         for t in snapshot.tasks:
-            # Set explicit remaining duration equal to estimated duration for incomplete tasks
-            rem = t.estimated_duration_ticks if t.status != TaskStatus.COMPLETED else 0
+            status_val = t.status.value if hasattr(t.status, "value") else str(t.status)
+            rem = t.estimated_duration_ticks if status_val != "COMPLETED" else 0
+            ro = next((r for r in snapshot.repair_orders if r.ro_id == t.ro_id), None)
             progress_evidence[t.task_id] = TaskExecutionProgressEvidence(
                 task_id=t.task_id,
                 status=t.status,
                 current_tick=current_tick,
+                existing_bay_id=ro.assigned_bay_id if (ro and status_val in ("IN_PROGRESS", "STALLED")) else None,
                 remaining_duration_ticks=rem,
+                is_assignment_locked=True,
             )
 
     vehicle_evidence = {}
     if with_vehicle_evidence:
         for r in snapshot.repair_orders:
-            # In S-MATH-01, RO-104 is immobilized in BAY-01; others are in holding or bays
-            is_imm = (
-                r.physical_state == VehiclePhysicalState.IMMOBILIZED_ON_LIFT
-                or (hasattr(r.physical_state, "value") and r.physical_state.value == "IMMOBILIZED_ON_LIFT")
-            )
-            vehicle_evidence[r.vehicle_id] = VehiclePhysicalEvidence(
+            state_val = r.physical_state.value if hasattr(r.physical_state, "value") else str(r.physical_state)
+            is_imm = state_val == "IMMOBILIZED_ON_LIFT"
+            is_holding = state_val == "IN_HOLDING"
+            v_ev = VehiclePhysicalEvidence(
                 vehicle_id=r.vehicle_id,
                 ro_id=r.ro_id,
                 physical_state=r.physical_state,
                 current_bay_id=r.assigned_bay_id if is_imm else None,
-                is_in_holding=not is_imm,
-                vehicle_weight_lbs=getattr(r, "vehicle_weight_lbs", 3800),
+                is_in_holding=is_holding,
+                vehicle_weight_lbs=getattr(r, "vehicle_weight_lbs", 3800) or 3800,
                 fitment_verified=True,
+                occupancy_start_tick=current_tick if is_imm else None,
             )
+            vehicle_evidence[r.vehicle_id] = v_ev
+            vehicle_evidence[r.ro_id] = v_ev
 
     fairness_evidence = {}
     if with_fairness:
