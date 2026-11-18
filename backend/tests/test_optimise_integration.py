@@ -1,4 +1,4 @@
-"""End-to-End Integration Tests for ServiceYield AI Optimise Engine (Task 1.4).
+"""End-to-End Integration Tests for ServiceYield AI Optimise Engine (Task 1.4 Corrected).
 
 Authoritative Reference:
 - docs/04_EXACT_NOVELTY_AND_SHADOW_PRICE.md
@@ -25,36 +25,40 @@ from app.optimise import (
 )
 from app.schemas.domain import DealershipSnapshotSchema
 from app.verifier.models import VerificationResult
+from tests.optimise_test_utils import make_synthetic_evidence
 
 
-class TestOptimiseIntegration:
+class TestOptimiseIntegrationCore:
     """Full cross-tier integration verification on canonical golden fixture S-MATH-01."""
 
     def test_end_to_end_optimise_pipeline_on_s_math_01(self, validated_snapshot: DealershipSnapshotSchema):
         """Executes complete Optimise pipeline: T1 constructive dispatch -> T2 CP-SAT -> Shadow Price."""
         config = OptimiseConfig(time_budget_seconds=2.5, deterministic_seed=42)
+        evidence = make_synthetic_evidence(validated_snapshot, authorize_all=True)
 
         # 1. Execute T1 Heuristic Dispatch
         t1_start = time.perf_counter()
         t1_scheduler = T1BitsetScheduler(config)
-        t1_result = t1_scheduler.schedule(validated_snapshot, plan_id="PLAN-INT-T1")
+        t1_result = t1_scheduler.schedule(validated_snapshot, plan_id="PLAN-INT-T1", evidence=evidence)
         t1_elapsed_ms = (time.perf_counter() - t1_start) * 1000.0
 
         assert t1_result.solver_tier == SchedulerTier.T1_HEURISTIC
         assert t1_result.is_verified is True
+        assert t1_result.is_fully_certified is True
         assert t1_result.verification_result is not None
         assert t1_result.verification_result.is_valid is True
-        assert t1_elapsed_ms < 50.0  # sub-2ms typical, < 50ms in CI/CD
+        assert t1_elapsed_ms < 50.0
 
         # 2. Execute T2 CP-SAT Discrete Optimization (warm-started with T1)
         t2_start = time.perf_counter()
         t2_scheduler = CPSATScheduler(config)
-        t2_result = t2_scheduler.schedule(validated_snapshot, plan_id="PLAN-INT-T2")
+        t2_result = t2_scheduler.schedule(validated_snapshot, plan_id="PLAN-INT-T2", evidence=evidence)
         t2_elapsed_ms = (time.perf_counter() - t2_start) * 1000.0
 
         assert t2_result.solver_tier == SchedulerTier.T2_CPSAT
         assert t2_result.solver_status in (SolverStatus.OPTIMAL, SolverStatus.FEASIBLE)
         assert t2_result.is_verified is True
+        assert t2_result.is_fully_certified is True
         assert t2_result.verification_result is not None
         assert t2_result.verification_result.is_valid is True
         assert t2_elapsed_ms <= (config.time_budget_seconds * 1000.0) + 1500.0
@@ -72,6 +76,7 @@ class TestOptimiseIntegration:
             start_tick=96,
             end_tick=120,
             baseline_result=t2_result,
+            evidence=evidence,
         )
 
         assert shadow_price.rooftop_id == validated_snapshot.rooftop.rooftop_id
@@ -85,6 +90,7 @@ class TestOptimiseIntegration:
     def test_shadow_price_bottleneck_vs_abundant_capacity(self, validated_snapshot: DealershipSnapshotSchema):
         """Verifies that capacity restriction on heavily demanded bays incurs positive shadow price."""
         config = OptimiseConfig(time_budget_seconds=2.5, deterministic_seed=42)
+        evidence = make_synthetic_evidence(validated_snapshot, authorize_all=True)
         price_calc = BayHourShadowPriceCalculator(config)
 
         # Evaluate BAY-02 during peak morning interval [96, 120]
@@ -93,19 +99,19 @@ class TestOptimiseIntegration:
             bay_id="BAY-02",
             start_tick=96,
             end_tick=120,
+            evidence=evidence,
         )
 
-        # Objective must be non-negative
         assert price_bay2.shadow_price_usd_per_hour >= Decimal("0.00")
         assert price_bay2.status in (ShadowPriceStatus.EXACT, ShadowPriceStatus.APPROXIMATE)
 
     def test_graceful_degradation_when_t2_fails_l4_oracle(self, validated_snapshot: DealershipSnapshotSchema):
         """Guarantees uninterrupted operational resilience: If T2 fails L4 audit, degrades to verified T1."""
         config = OptimiseConfig(time_budget_seconds=2.5, deterministic_seed=42)
+        evidence = make_synthetic_evidence(validated_snapshot, authorize_all=True)
         scheduler = CPSATScheduler(config)
 
         with patch("app.optimise.cpsat_solver.SweepLineOracle") as mock_oracle:
-            # Emulate an L4 violation in the T2 candidate plan
             mock_oracle.return_value.verify_plan.return_value = VerificationResult(
                 plan_id="CORRUPTED-T2-PLAN",
                 snapshot_hash="hash",
@@ -114,9 +120,8 @@ class TestOptimiseIntegration:
                 execution_time_ms=0.5,
             )
 
-            result = scheduler.schedule(validated_snapshot, plan_id="PLAN-RESILIENCE-TEST")
+            result = scheduler.schedule(validated_snapshot, plan_id="PLAN-RESILIENCE-TEST", evidence=evidence)
 
-            # Must degrade to T1
             assert result.solver_tier == SchedulerTier.T1_HEURISTIC
             assert result.is_verified is True
             assert result.verification_result is not None

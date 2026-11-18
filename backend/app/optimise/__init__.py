@@ -1,13 +1,22 @@
 """ServiceYield AI — Optimise Engine (Phase 1, Task 1.4).
 
 Hierarchy:
-- T1 Deterministic Earliest-Fit Bitset Scheduler (< 2ms)
-- T2 Discrete OR-Tools CP-SAT Optimizer (2.5s budget, warm-started with T1, L4 verified)
+- T1 Deterministic Earliest-Fit Bitset Scheduler (true integer bitset masks, < 2ms)
+- T2 Discrete OR-Tools CP-SAT Optimizer (2.5s budget, warm-started with T1, dual verified)
 - Bay-Hour Shadow Price nu_b(t) Discrete Difference Re-Solve Engine
+- Independent Supplemental Audit Oracle and Explicit Workshop Evidence Contracts
 """
 
 from app.optimise.config import OptimiseConfig
 from app.optimise.cpsat_solver import CPSATScheduler
+from app.optimise.evidence import (
+    CustomerAuthorizationEvidence,
+    ManagerFreightApprovalEvidence,
+    TaskExecutionProgressEvidence,
+    TechnicianFairnessEvidence,
+    VehiclePhysicalEvidence,
+    WorkshopEvidenceBundle,
+)
 from app.optimise.heuristics import BitsetOccupancyGrid, T1BitsetScheduler
 from app.optimise.models import (
     BayHourPriceSurface,
@@ -19,6 +28,10 @@ from app.optimise.models import (
     SolverStatus,
 )
 from app.optimise.shadow_price import BayHourShadowPriceCalculator
+from app.optimise.supplemental_audit import (
+    SupplementalAuditOracle,
+    SupplementalAuditResult,
+)
 
 __all__ = [
     "OptimiseConfig",
@@ -26,6 +39,14 @@ __all__ = [
     "BitsetOccupancyGrid",
     "CPSATScheduler",
     "BayHourShadowPriceCalculator",
+    "SupplementalAuditOracle",
+    "SupplementalAuditResult",
+    "WorkshopEvidenceBundle",
+    "CustomerAuthorizationEvidence",
+    "ManagerFreightApprovalEvidence",
+    "TaskExecutionProgressEvidence",
+    "VehiclePhysicalEvidence",
+    "TechnicianFairnessEvidence",
     "ScheduleResult",
     "ObjectiveMetrics",
     "SchedulerTier",

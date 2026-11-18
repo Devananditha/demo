@@ -40,6 +40,11 @@ class OptimiseConfig(BaseModel):
         ge=Decimal("0.00"),
         description="lambda_churn: Schedule churn penalty per reassignment",
     )
+    freight_approval_threshold_usd: Decimal = Field(
+        default=Decimal("50.00"),
+        ge=Decimal("0.00"),
+        description="Default manager freight surcharge approval threshold under C7",
+    )
 
     # Operational grid bounds
     horizon_ticks: int = Field(default=288, ge=1, le=288, description="Total discrete 5-min ticks in daily horizon")

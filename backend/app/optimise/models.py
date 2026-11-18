@@ -46,9 +46,13 @@ class ObjectiveMetrics(BaseModel):
     lateness_penalty_usd: Decimal = Field(default=Decimal("0.00"), description="lambda_late * weighted_lateness in USD")
     bay_blocked_ticks: int = Field(default=0, ge=0, description="Avoidable bay-blocking idle ticks")
     bay_blocked_penalty_usd: Decimal = Field(default=Decimal("0.00"), description="lambda_block * bay_blocked_ticks in USD")
-    schedule_churn_score: int = Field(default=0, ge=0, description="Number of task/resource reassignments from prior plan")
-    schedule_churn_penalty_usd: Decimal = Field(default=Decimal("0.00"), description="lambda_churn * churn_score in USD")
+    schedule_churn_score: Optional[int] = Field(default=None, ge=0, description="Number of task/resource reassignments from prior plan")
+    schedule_churn_penalty_usd: Optional[Decimal] = Field(default=None, description="lambda_churn * churn_score in USD")
+    churn_status: str = Field(default="NOT_APPLICABLE", description="AVAILABLE or NOT_APPLICABLE (when no prior plan exists)")
     net_objective_usd: Decimal = Field(default=Decimal("0.00"), description="Total net economic yield Z in USD")
+    objective_completeness: str = Field(default="PARTIAL_CONFIGURED", description="PARTIAL_CONFIGURED or FULL_OBJECTIVE")
+    configured_terms: List[str] = Field(default_factory=lambda: ["gross_contribution", "lateness_penalty"])
+    unconfigured_terms: List[str] = Field(default_factory=lambda: ["sourcing_cost", "bay_blocked_penalty", "schedule_churn_penalty"])
 
 
 class ScheduleResult(BaseModel):
@@ -69,6 +73,9 @@ class ScheduleResult(BaseModel):
     unscheduled_tasks: Dict[str, str] = Field(default_factory=dict, description="task_id -> explicit failure reason")
     verification_result: Optional[VerificationResult] = None
     is_verified: bool = Field(default=False, description="Certified PASS by independent L4 sweep-line oracle")
+    supplemental_audit_result: Optional[Dict[str, Any]] = Field(default=None, description="Certified PASS by supplemental audit oracle")
+    is_fully_certified: bool = Field(default=False, description="Certified PASS by both L4 Sweep Oracle and Supplemental Audit")
+    evidence_coverage_gaps: List[str] = Field(default_factory=list)
     degradation_reason: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -87,10 +94,12 @@ class BayHourShadowPrice(BaseModel):
     baseline_objective_usd: Decimal = Field(..., description="Z*(C union {(b, t)})")
     perturbed_objective_usd: Decimal = Field(..., description="Z*(C setminus {(b, t)})")
     delta_objective_usd: Decimal = Field(..., description="Delta Z = Z*_avail - Z*_unavail")
-    is_exact: bool = Field(..., description="True if and only if both solves proved mathematical OPTIMAL")
+    signed_delta_objective_usd: Optional[Decimal] = Field(default=None, description="Raw unclipped difference base - pert")
+    is_exact: bool = Field(..., description="True if and only if both solves proved mathematical OPTIMAL with full audit pass")
     status: ShadowPriceStatus
     baseline_status: SolverStatus
     perturbed_status: SolverStatus
+    objective_coverage: str = Field(default="PARTIAL_CONFIGURED")
     reason: Optional[str] = None
     computed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
