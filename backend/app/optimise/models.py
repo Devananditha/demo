@@ -68,6 +68,23 @@ class ObjectiveMetrics(BaseModel):
     uncompleted_ros_count: int = Field(default=0, ge=0, description="Count of repair orders not fully completed or scheduled")
 
 
+class PlannedVehicleMovement(BaseModel):
+    """Explicit scheduled vehicle movement operation (holding to service bay)."""
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    vehicle_id: str = Field(..., min_length=1)
+    ro_id: str = Field(..., min_length=1)
+    origin_location: str = Field(default="HOLDING_LOT")
+    target_bay_id: str = Field(..., min_length=1)
+    start_tick: int = Field(..., ge=0, le=288)
+    end_tick: int = Field(..., ge=0, le=288)
+    assigned_resource_id: str = Field(..., min_length=1)
+    resource_type: str = Field(default="PORTER", description="PORTER or TECHNICIAN")
+    resource_availability: str = Field(default="AVAILABLE")
+    movement_status: str = Field(default="PLANNED", description="PLANNED, IN_TRANSIT, or COMPLETED")
+    related_task_id: str = Field(..., min_length=1, description="First mechanical task requiring this vehicle in target bay")
+
+
 class ScheduleResult(BaseModel):
     """Complete certified dispatch result from the Optimise Engine."""
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
@@ -82,6 +99,7 @@ class ScheduleResult(BaseModel):
     best_bound_usd: Optional[Decimal] = None
     optimality_gap: Optional[float] = None
     plan: CandidateSchedulePlan
+    planned_movements: List[PlannedVehicleMovement] = Field(default_factory=list, description="Explicit scheduled holding-to-bay movements")
     metrics: ObjectiveMetrics
     unscheduled_tasks: Dict[str, str] = Field(default_factory=dict, description="task_id -> explicit failure reason")
     verification_result: Optional[VerificationResult] = None
@@ -115,6 +133,7 @@ class BayHourShadowPrice(BaseModel):
     baseline_status: SolverStatus
     perturbed_status: SolverStatus
     objective_coverage: str = Field(default="PARTIAL_CONFIGURED")
+    valuation_scope: str = Field(default="CONFIGURED_OBJECTIVE_ONLY", description="Scope of exactness: CONFIGURED_OBJECTIVE_ONLY vs COMPLETE_BUSINESS_ECONOMICS")
     reason: Optional[str] = None
     computed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

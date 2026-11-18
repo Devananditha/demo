@@ -88,12 +88,22 @@ class BayHourShadowPriceCalculator:
 
         # 2. Baseline Solve Z*(C)
         use_cached_baseline = False
+        curr_ev_fingerprint = getattr(ev, "current_tick", 96)
         if baseline_result is not None:
+            base_snap_hash = baseline_result.snapshot_hash
+            curr_snap_hash = snapshot.snapshot_hash or ""
+            is_snap_same = (base_snap_hash == curr_snap_hash) if (base_snap_hash and curr_snap_hash) else True
+            base_ev_tick = getattr(baseline_result, "_evidence_current_tick", None)
+            is_ev_same = (base_ev_tick is None or base_ev_tick == curr_ev_fingerprint)
+
             if (
-                baseline_result.snapshot_hash == (snapshot.snapshot_hash or "")
+                is_snap_same
+                and is_ev_same
                 and baseline_result.solver_tier == SchedulerTier.T2_CPSAT
                 and getattr(baseline_result, "is_verified", False) is True
+                and getattr(baseline_result, "is_fully_certified", False) is True
                 and baseline_result.solver_status == SolverStatus.OPTIMAL
+                and baseline_result.degradation_reason is None
             ):
                 use_cached_baseline = True
                 base_res = baseline_result
@@ -104,6 +114,7 @@ class BayHourShadowPriceCalculator:
                 plan_id=f"PLAN-SHADOW-BASE-{snapshot.rooftop.rooftop_id}",
                 evidence=ev,
             )
+            setattr(base_res, "_evidence_current_tick", curr_ev_fingerprint)
 
         # 3. Perturbed Solve Z*(C \ {(b, [start, end))})
         pert_plan_id = f"PLAN-SHADOW-PERT-{bay_id}-{start_tick}-{end_tick}"
@@ -123,6 +134,22 @@ class BayHourShadowPriceCalculator:
         base_obj = base_res.objective_value_usd if base_res.objective_value_usd is not None else Decimal("0.00")
         pert_obj = pert_res.objective_value_usd if pert_res.objective_value_usd is not None else Decimal("0.00")
         signed_delta = base_obj - pert_obj
+        valuation_scope = "CONFIGURED_OBJECTIVE_ONLY"
+
+        is_exact_certified = (
+            base_status == SolverStatus.OPTIMAL
+            and pert_status == SolverStatus.OPTIMAL
+            and base_tier == SchedulerTier.T2_CPSAT
+            and pert_tier == SchedulerTier.T2_CPSAT
+            and getattr(base_res, "is_verified", False) is True
+            and getattr(pert_res, "is_verified", False) is True
+            and getattr(base_res, "is_fully_certified", False) is True
+            and getattr(pert_res, "is_fully_certified", False) is True
+            and base_res.degradation_reason is None
+            and pert_res.degradation_reason is None
+            and (len(base_res.evidence_coverage_gaps) == 0 if hasattr(base_res, "evidence_coverage_gaps") else True)
+            and (len(pert_res.evidence_coverage_gaps) == 0 if hasattr(pert_res, "evidence_coverage_gaps") else True)
+        )
 
         # Strict exactness: genuine T2, both OPTIMAL, both verified, non-negative difference
         if signed_delta < Decimal("-0.01"):
@@ -135,14 +162,7 @@ class BayHourShadowPriceCalculator:
                 f"Shadow price unavailable due to solver inconsistency: "
                 f"restricting capacity produced negative delta ${signed_delta}."
             )
-        elif (
-            base_status == SolverStatus.OPTIMAL
-            and pert_status == SolverStatus.OPTIMAL
-            and base_tier == SchedulerTier.T2_CPSAT
-            and pert_tier == SchedulerTier.T2_CPSAT
-            and getattr(base_res, "is_verified", False)
-            and getattr(pert_res, "is_verified", False)
-        ):
+        elif is_exact_certified:
             is_exact = True
             status = ShadowPriceStatus.EXACT
             delta_obj = max(Decimal("0.00"), signed_delta).quantize(Decimal("0.01"))
@@ -150,12 +170,12 @@ class BayHourShadowPriceCalculator:
             nu_tick = (nu_hour / Decimal("12")).quantize(Decimal("0.0001"))
             if delta_obj == Decimal("0.00"):
                 reason = (
-                    f"Bay {bay_id} is non-binding during [{start_tick}, {end_tick}): "
+                    f"Bay {bay_id} is non-binding during [{start_tick}, {end_tick}) for configured objective: "
                     f"workshop possesses surplus bay capacity; loss incurs $0.00 yield impact."
                 )
             else:
                 reason = (
-                    f"Bay {bay_id} is a binding bottleneck during [{start_tick}, {end_tick}): "
+                    f"Bay {bay_id} is a binding bottleneck during [{start_tick}, {end_tick}) for configured objective: "
                     f"capacity restriction reduces net yield by ${delta_obj} (${nu_hour}/bay-hour)."
                 )
         elif (
@@ -170,7 +190,7 @@ class BayHourShadowPriceCalculator:
             nu_hour = (delta_obj / duration_hours).quantize(Decimal("0.01"))
             nu_tick = (nu_hour / Decimal("12")).quantize(Decimal("0.0001"))
             reason = (
-                f"Shadow price approximate: solver returned FEASIBLE (baseline={base_status.value}, "
+                f"Shadow price approximate: solver returned FEASIBLE or uncertified solve (baseline={base_status.value}, "
                 f"perturbed={pert_status.value}, baseline_tier={base_tier.value}, perturbed_tier={pert_tier.value})."
             )
         else:
@@ -201,6 +221,7 @@ class BayHourShadowPriceCalculator:
             baseline_status=base_status,
             perturbed_status=pert_status,
             objective_coverage=getattr(base_res.metrics, "objective_completeness", "PARTIAL_CONFIGURED"),
+            valuation_scope=valuation_scope,
             reason=reason,
             computed_at=datetime.now(timezone.utc),
         )

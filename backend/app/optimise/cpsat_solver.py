@@ -41,6 +41,7 @@ from app.optimise.evidence import WorkshopEvidenceBundle
 from app.optimise.heuristics import T1BitsetScheduler
 from app.optimise.models import (
     ObjectiveMetrics,
+    PlannedVehicleMovement,
     RepairOrderCompletionStatus,
     ScheduleResult,
     SchedulerTier,
@@ -133,26 +134,6 @@ class CPSATScheduler:
                 unscheduled_reasons[t.task_id] = f"UNAUTHORIZED_CUSTOMER_ESTIMATE_{t.ro_id}"
                 continue
 
-            # Task Execution Progress and Remaining Duration Evidence (Finding B1)
-            rem_dur = ev.get_effective_remaining_duration(t.task_id, t.status, t.estimated_duration_ticks)
-            if rem_dur is None:
-                unscheduled_reasons[t.task_id] = f"MISSING_EXECUTION_PROGRESS_{t.task_id}"
-                continue
-            if rem_dur <= 0:
-                completed_task_ids.add(t.task_id)
-                continue
-
-            # C2 Part Availability Gate
-            task_parts = parts_by_task.get(t.task_id, [])
-            has_missing_eta = False
-            for part in task_parts:
-                if part.usable_ready_tick is None:
-                    unscheduled_reasons[t.task_id] = f"PART_NOT_READY_NO_ETA_{part.part_req_id}"
-                    has_missing_eta = True
-                    break
-            if has_missing_eta:
-                continue
-
             # C1 Fitment and Vehicle Weight Gates (Finding A2 & A3)
             ro = ros_by_id.get(t.ro_id)
             if not ro:
@@ -189,6 +170,40 @@ class CPSATScheduler:
                     unscheduled_reasons[t.task_id] = f"IMMOBILIZED_VEHICLE_MISSING_ASSIGNED_BAY_{ro.ro_id}"
                     continue
 
+            # Task Execution Progress and Remaining Duration Evidence (Finding B1)
+            status_val = t.status.value if hasattr(t.status, "value") else str(t.status)
+            if status_val in ("IN_PROGRESS", "STALLED"):
+                prog = ev.task_progress.get(t.task_id)
+                if not prog:
+                    unscheduled_reasons[t.task_id] = f"MISSING_EXECUTION_PROGRESS_{t.task_id}"
+                    continue
+                if prog.remaining_duration_ticks is None or prog.remaining_duration_ticks <= 0:
+                    unscheduled_reasons[t.task_id] = f"MISSING_EXECUTION_PROGRESS_REMAINING_DURATION_{t.task_id}"
+                    continue
+                if prog.requires_existing_assignment and (not prog.existing_bay_id or not prog.existing_tech_id):
+                    unscheduled_reasons[t.task_id] = f"MISSING_EXISTING_ASSIGNMENT_EVIDENCE_{t.task_id}"
+                    continue
+                rem_dur = prog.remaining_duration_ticks
+            else:
+                rem_dur = ev.get_effective_remaining_duration(t.task_id, t.status, t.estimated_duration_ticks)
+                if rem_dur is None:
+                    unscheduled_reasons[t.task_id] = f"MISSING_EXECUTION_PROGRESS_{t.task_id}"
+                    continue
+                if rem_dur <= 0:
+                    completed_task_ids.add(t.task_id)
+                    continue
+
+            # C2 Part Availability Gate
+            task_parts = parts_by_task.get(t.task_id, [])
+            has_missing_eta = False
+            for part in task_parts:
+                if part.usable_ready_tick is None:
+                    unscheduled_reasons[t.task_id] = f"PART_NOT_READY_NO_ETA_{part.part_req_id}"
+                    has_missing_eta = True
+                    break
+            if has_missing_eta:
+                continue
+
             is_holding = phys_ev.is_in_holding if phys_ev else (state_val == "IN_HOLDING")
             if is_holding and not ev.available_porter_tech_ids:
                 unscheduled_reasons[t.task_id] = f"NO_PORTER_OR_TECH_AVAILABLE_FOR_MOVE_{ro.ro_id}"
@@ -196,7 +211,7 @@ class CPSATScheduler:
 
             earliest_move = (ev.current_tick + 2) if is_holding else horizon_start
             earliest_part = max([p.usable_ready_tick for p in task_parts if p.usable_ready_tick is not None] or [horizon_start])
-            earliest_possible = max(horizon_start, earliest_part, earliest_move)
+            earliest_possible = max(ev.current_tick, horizon_start, earliest_part, earliest_move)
 
             if earliest_possible + rem_dur > horizon_end:
                 unscheduled_reasons[t.task_id] = "NO_FEASIBLE_INTERVAL_WITHIN_HORIZON"
@@ -250,6 +265,8 @@ class CPSATScheduler:
 
         tech_intervals: Dict[str, List[cp_model.IntervalVar]] = defaultdict(list)
         bay_intervals: Dict[str, List[cp_model.IntervalVar]] = defaultdict(list)
+        porter_intervals: Dict[str, List[cp_model.IntervalVar]] = defaultdict(list)
+        move_vars: Dict[str, Dict[str, Any]] = {}
 
         # Pre-allocate existing WIP active intervals into tech_intervals and bay_intervals (Finding B1)
         for task in snapshot.tasks:
@@ -269,6 +286,25 @@ class CPSATScheduler:
                                 model.NewIntervalVar(prog.occupied_start_tick, occ_dur, occ_end, f"wip_bay_{task.task_id}")
                             )
 
+        # Identify holding entry tasks requiring explicit movement operations
+        holding_entry_tasks: Dict[str, Any] = {}
+        for ro in snapshot.repair_orders:
+            phys_ev = ev.get_vehicle_physical_evidence(ro.vehicle_id, ro.ro_id)
+            state_val = (
+                phys_ev.physical_state.value if (phys_ev and hasattr(phys_ev.physical_state, "value"))
+                else (ro.physical_state.value if hasattr(ro.physical_state, "value") else str(ro.physical_state))
+            )
+            is_holding = phys_ev.is_in_holding if phys_ev else (state_val == "IN_HOLDING")
+            if is_holding:
+                ro_tasks = [t for t in schedulable_tasks if t.ro_id == ro.ro_id]
+                ro_tasks.sort(key=lambda t: (t.sequence_order, t.task_id))
+                entry_candidates = [
+                    t for t in ro_tasks
+                    if not any(p in set(x.task_id for x in ro_tasks) for p in t.predecessor_task_ids)
+                ]
+                if entry_candidates:
+                    holding_entry_tasks[entry_candidates[0].task_id] = ro
+
         # Decision Variables & Intervals for Schedulable Tasks
         for task in schedulable_tasks:
             t_id = task.task_id
@@ -285,9 +321,9 @@ class CPSATScheduler:
                 phys_ev.physical_state.value if (phys_ev and hasattr(phys_ev.physical_state, "value"))
                 else (ro.physical_state.value if hasattr(ro.physical_state, "value") else str(ro.physical_state))
             )
-            is_holding = phys_ev.is_in_holding if phys_ev else (state_val == "IN_HOLDING")
-            earliest_move_tick = (ev.current_tick + 2) if is_holding else horizon_start
-            earliest_start = max(horizon_start, earliest_part_tick, earliest_move_tick)
+            is_entry_holding = t_id in holding_entry_tasks
+            earliest_move_tick = (ev.current_tick + 2) if is_entry_holding else horizon_start
+            earliest_start = max(ev.current_tick, horizon_start, earliest_part_tick, earliest_move_tick)
 
             is_sched = model.NewBoolVar(f"z_{t_id}")
             start_var = model.NewIntVar(horizon_start, horizon_end - duration, f"start_{t_id}")
@@ -295,6 +331,35 @@ class CPSATScheduler:
 
             model.Add(end_var == start_var + duration).OnlyEnforceIf(is_sched)
             model.Add(start_var >= earliest_start).OnlyEnforceIf(is_sched)
+
+            if is_entry_holding:
+                # Explicit CP-SAT 2-tick movement interval
+                move_start = model.NewIntVar(ev.current_tick, horizon_end - 2, f"move_start_{t_id}")
+                move_end = model.NewIntVar(ev.current_tick + 2, horizon_end, f"move_end_{t_id}")
+                model.Add(move_end == move_start + 2).OnlyEnforceIf(is_sched)
+                model.Add(start_var >= move_end).OnlyEnforceIf(is_sched)
+
+                m_res_vars: Dict[str, cp_model.IntVar] = {}
+                for p_id in sorted(ev.available_porter_tech_ids):
+                    res_var = model.NewBoolVar(f"move_res_{t_id}_{p_id}")
+                    m_res_vars[p_id] = res_var
+                    opt_m_int = model.NewOptionalIntervalVar(move_start, 2, move_end, res_var, f"move_int_{t_id}_{p_id}")
+                    if p_id in techs_by_id:
+                        tech_intervals[p_id].append(opt_m_int)
+                    else:
+                        porter_intervals[p_id].append(opt_m_int)
+
+                if m_res_vars:
+                    model.Add(sum(m_res_vars.values()) == is_sched)
+                else:
+                    model.Add(is_sched == 0)
+
+                move_vars[t_id] = {
+                    "start": move_start,
+                    "end": move_end,
+                    "res_vars": m_res_vars,
+                    "ro": ro,
+                }
 
             task_vars[t_id] = {
                 "is_scheduled": is_sched,
@@ -418,6 +483,10 @@ class CPSATScheduler:
             intervals = bay_intervals[bay.bay_id] + blocked_for_bay
             model.AddNoOverlap(intervals)
 
+        # Porter Exclusivity Constraints (Non-technician porters)
+        for p_id, p_ints in porter_intervals.items():
+            model.AddNoOverlap(p_ints)
+
         # 6. Precedence DAG Constraints (C3)
         for task in schedulable_tasks:
             t_id = task.task_id
@@ -480,6 +549,14 @@ class CPSATScheduler:
                         model.AddHint(tech_assignment_vars[(t_id, assignment.tech_id)], 1)
                     if (t_id, assignment.bay_id) in bay_assignment_vars:
                         model.AddHint(bay_assignment_vars[(t_id, assignment.bay_id)], 1)
+            for pm in getattr(warm_start_result, "planned_movements", []):
+                t_id = pm.related_task_id
+                if t_id in move_vars:
+                    mv = move_vars[t_id]
+                    model.AddHint(mv["start"], pm.start_tick)
+                    model.AddHint(mv["end"], pm.end_tick)
+                    if pm.assigned_resource_id in mv["res_vars"]:
+                        model.AddHint(mv["res_vars"][pm.assigned_resource_id], 1)
 
         # 10. Execute CP-SAT Solve
         solver = cp_model.CpSolver()
@@ -533,6 +610,40 @@ class CPSATScheduler:
                 else:
                     unscheduled_reasons[t_id] = "PRUNED_BY_SOLVER_OBJECTIVE"
 
+            # Extract Planned Vehicle Movements for Holding Tasks
+            planned_movements: List[PlannedVehicleMovement] = []
+            for t_id, mv in move_vars.items():
+                if solver.Value(task_vars[t_id]["is_scheduled"]) == 1:
+                    m_s = int(solver.Value(mv["start"]))
+                    m_e = int(solver.Value(mv["end"]))
+                    assigned_res = None
+                    for r_id, r_var in mv["res_vars"].items():
+                        if solver.Value(r_var) == 1:
+                            assigned_res = r_id
+                            break
+                    assigned_bay = None
+                    for (task_b, bay_b), var in bay_assignment_vars.items():
+                        if task_b == t_id and solver.Value(var) == 1:
+                            assigned_bay = bay_b
+                            break
+                    if assigned_res and assigned_bay:
+                        m_ro = mv["ro"]
+                        planned_movements.append(
+                            PlannedVehicleMovement(
+                                vehicle_id=m_ro.vehicle_id,
+                                ro_id=m_ro.ro_id,
+                                origin_location="HOLDING_LOT",
+                                target_bay_id=assigned_bay,
+                                start_tick=m_s,
+                                end_tick=m_e,
+                                assigned_resource_id=assigned_res,
+                                resource_type="TECHNICIAN" if assigned_res in techs_by_id else "PORTER",
+                                resource_availability="AVAILABLE",
+                                movement_status="PLANNED",
+                                related_task_id=t_id,
+                            )
+                        )
+
             # Vehicle Occupancy for Immobilized Vehicles
             vehicle_occupancies = []
             for imm_ro_id, imm_ro in immobilized_ros.items():
@@ -564,9 +675,15 @@ class CPSATScheduler:
                             )
                         )
 
-            # Calculate metrics (Finding F1 & F2)
+            # Calculate metrics using exact integer cents matching CP-SAT formulation
+            solver_obj_cents = int(round(solver.ObjectiveValue()))
+            solver_obj_usd = (Decimal(str(solver_obj_cents)) / Decimal("100")).quantize(Decimal("0.01"))
+            best_bound_cents = int(round(solver.BestObjectiveBound()))
+            best_bound_usd = (Decimal(str(best_bound_cents)) / Decimal("100")).quantize(Decimal("0.01"))
+
             total_labor_ticks = sum(a.end_tick - a.start_tick for a in assignments)
-            gross_contrib = (Decimal(str(total_labor_ticks)) * self.config.labor_contribution_per_hour_usd) / Decimal("12")
+            gross_cents = total_labor_ticks * gross_cents_per_tick
+            gross_contrib = Decimal(str(gross_cents)) / Decimal("100")
 
             # RO Completion Analysis
             ro_completion_statuses: Dict[str, str] = {}
@@ -598,10 +715,11 @@ class CPSATScheduler:
                     else:
                         ro_completion_statuses[ro.ro_id] = RepairOrderCompletionStatus.UNSCHEDULABLE_IN_HORIZON.value
 
-            lateness_penalty = Decimal(str(weighted_lateness_ticks * 5)) * self.config.lateness_penalty_per_minute_usd
+            late_cents = weighted_lateness_ticks * late_cents_per_tick
+            lateness_penalty = Decimal(str(late_cents)) / Decimal("100")
             bay_blocked_ticks = sum((occ.end_tick - occ.start_tick) for occ in vehicle_occupancies)
-            bay_blocked_penalty = Decimal(str(bay_blocked_ticks * 5)) * self.config.blocked_bay_penalty_per_minute_usd
-            net_obj = gross_contrib - lateness_penalty - bay_blocked_penalty
+            bay_blocked_penalty = Decimal("0.00")
+            net_obj = gross_contrib - lateness_penalty
 
             metrics = ObjectiveMetrics(
                 gross_contribution_usd=gross_contrib.quantize(Decimal("0.01")),
@@ -609,14 +727,14 @@ class CPSATScheduler:
                 weighted_lateness_ticks=weighted_lateness_ticks,
                 lateness_penalty_usd=lateness_penalty.quantize(Decimal("0.01")),
                 bay_blocked_ticks=bay_blocked_ticks,
-                bay_blocked_penalty_usd=bay_blocked_penalty.quantize(Decimal("0.01")),
+                bay_blocked_penalty_usd=Decimal("0.00"),
                 schedule_churn_score=None,
                 schedule_churn_penalty_usd=None,
                 churn_status="NOT_APPLICABLE",
-                net_objective_usd=net_obj.quantize(Decimal("0.01")),
+                net_objective_usd=solver_obj_usd,
                 objective_completeness="PARTIAL_CONFIGURED",
-                configured_terms=["gross_contribution", "lateness_penalty", "bay_blocked_penalty"],
-                unconfigured_terms=["sourcing_cost", "schedule_churn_penalty"],
+                configured_terms=["gross_contribution", "lateness_penalty"],
+                unconfigured_terms=["sourcing_cost", "bay_blocked_penalty", "schedule_churn_penalty"],
                 ro_completion_statuses=ro_completion_statuses,
                 uncompleted_ros_count=uncompleted_ros_count,
             )
@@ -642,18 +760,19 @@ class CPSATScheduler:
             verification_result = oracle.verify_plan(candidate_plan)
 
             supp_oracle = SupplementalAuditOracle(snapshot, ev)
-            supp_result = supp_oracle.audit_plan(candidate_plan)
+            supp_result = supp_oracle.audit_plan(candidate_plan, planned_movements=planned_movements)
 
-            is_verified = verification_result.is_valid
+            has_assignments = len(assignments) > 0
+            has_incomplete = any((t.status.value if hasattr(t.status, "value") else str(t.status)) != "COMPLETED" for t in snapshot.tasks)
+
+            is_verified = verification_result.is_valid and (has_assignments or not has_incomplete)
             is_fully_certified = is_verified and supp_result.is_valid
-            is_actionable = is_fully_certified and len(supp_result.coverage_gaps) == 0
+            is_actionable = has_assignments and is_fully_certified and (len(supp_result.coverage_gaps) == 0) and getattr(supp_result, "is_actionable", True)
 
             # Optimality gap
-            best_bound_cents = solver.BestObjectiveBound()
-            obj_cents = solver.ObjectiveValue()
             gap = 0.0
-            if solver_status == SolverStatus.FEASIBLE and abs(obj_cents) > 1e-6:
-                gap = abs(best_bound_cents - obj_cents) / abs(obj_cents)
+            if solver_status == SolverStatus.FEASIBLE and abs(solver_obj_cents) > 1e-6:
+                gap = abs(best_bound_cents - solver_obj_cents) / abs(solver_obj_cents)
 
             if is_fully_certified:
                 return ScheduleResult(
@@ -663,10 +782,11 @@ class CPSATScheduler:
                     solver_tier=SchedulerTier.T2_CPSAT,
                     solver_status=solver_status,
                     runtime_ms=round(solve_elapsed_ms, 3),
-                    objective_value_usd=net_obj.quantize(Decimal("0.01")),
-                    best_bound_usd=Decimal(str(best_bound_cents / 100.0)).quantize(Decimal("0.01")),
+                    objective_value_usd=solver_obj_usd,
+                    best_bound_usd=best_bound_usd,
                     optimality_gap=round(gap, 4),
                     plan=candidate_plan,
+                    planned_movements=planned_movements,
                     metrics=metrics,
                     unscheduled_tasks=unscheduled_reasons,
                     verification_result=verification_result,
