@@ -60,6 +60,10 @@ class TaskExecutionProgressEvidence(BaseModel):
         default=True,
         description="True if existing tech/bay assignment cannot legally be changed mid-operation",
     )
+    requires_existing_assignment: bool = Field(
+        default=False,
+        description="If True, task requires explicit non-null existing_bay_id and existing_tech_id",
+    )
     occupied_start_tick: Optional[int] = Field(
         default=None,
         ge=0,

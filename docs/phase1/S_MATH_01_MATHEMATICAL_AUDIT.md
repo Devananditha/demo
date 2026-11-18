@@ -131,7 +131,10 @@ $$\text{Net Yield} = \$220.00\text{ (capacity)} + \$55.00\text{ (retention)} - \
    - Instead, the value of capacity is the exact marginal shadow price $\nu_b(t)$ computed via discrete re-solves:
      $$\Delta Z = Z^*_{\text{base}} - Z^*_{\text{pert}}$$
    - In reality, recovering `BAY-01` at tick 189 does not merely save 110 minutes of arbitrary time; it **unlocks the completion of RO-106**, which would otherwise be completely aborted/unscheduled in the unmitigated baseline due to the 228-tick horizon limit!
-   - The true economic gain is the full gross contribution of completing RO-106 ($+\$450.00$) minus overtime penalties and freight cost.
+   - The true economic gain is the full gross contribution of completing RO-106 ($+\$240.00$, representing 2 labor hours $\times$ \$120/hr per A3) minus overtime penalties and freight cost.
+   - Base lateness is 90 conditional weighted ticks (not 99, which came from an invalid C2 violation and flat $w=1$).
+   - Recovered lateness is 51 weighted ticks (not 33, which assumed physical impossibility on BAY-01).
+   - Net economic difference must be derived from CP-SAT objective delta $\Delta Z$, not static \$2/min heuristic arithmetic.
 
 ---
 
