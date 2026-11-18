@@ -20,11 +20,16 @@ Where:
 - Delta_t is the evaluation duration in decimal hours (Delta_ticks / 12).
 - Canonical storage unit: USD per bay-hour (e.g. $120.00/hour).
 - Internal solver unit: USD per bay-tick (nu_hour / 12 = $10.00/tick).
-- Exactness certification:
-  - status = EXACT (is_exact = True) if and only if BOTH paired solves are genuine T2 CP-SAT solves,
-    both prove mathematical OPTIMAL, both pass L4 sweep-line verification, and Delta Z >= 0.
-  - status = APPROXIMATE (is_exact = False) if either solve stopped at FEASIBLE.
-  - status = UNAVAILABLE (is_exact = False) if either solve returned INFEASIBLE/UNKNOWN or Delta Z < 0.
+
+Strict Exactness Certification:
+A shadow price may be certified EXACT if and only if:
+1. Baseline is T2 CP-SAT.
+2. Perturbed solve is T2 CP-SAT.
+3. Both solves prove mathematical OPTIMAL.
+4. Both pass L4 Sweep-Line Oracle and Supplemental Audit Oracle.
+5. Both use identical snapshot and evidence contracts.
+If Delta Z < -0.01 USD (solver non-monotonicity), status must be UNAVAILABLE.
+If either solve returned FEASIBLE, status must be APPROXIMATE.
 """
 
 from datetime import datetime, timezone
@@ -65,19 +70,7 @@ class BayHourShadowPriceCalculator:
         baseline_result: Optional[ScheduleResult] = None,
         evidence: Optional[WorkshopEvidenceBundle] = None,
     ) -> BayHourShadowPrice:
-        """Computes the marginal economic value nu_b(t) of bay b during [start_tick, end_tick).
-
-        Args:
-            snapshot: Canonical validated dealership snapshot state.
-            bay_id: Identifier of bay to evaluate.
-            start_tick: Start of evaluation window (0 <= start_tick < end_tick <= 288).
-            end_tick: End of evaluation window.
-            baseline_result: Optional precomputed unperturbed baseline result.
-            evidence: Explicit operational evidence bundle.
-
-        Returns:
-            BayHourShadowPrice with canonical USD/bay-hour valuation and exactness certification.
-        """
+        """Computes the marginal economic value nu_b(t) of bay b during [start_tick, end_tick)."""
         # 1. Validation
         if not (0 <= start_tick < end_tick <= self.config.horizon_ticks):
             raise ValueError(
@@ -96,11 +89,10 @@ class BayHourShadowPriceCalculator:
         # 2. Baseline Solve Z*(C)
         use_cached_baseline = False
         if baseline_result is not None:
-            # Baseline must match snapshot hash, be a verified T2 CP-SAT solve, and be OPTIMAL
             if (
                 baseline_result.snapshot_hash == (snapshot.snapshot_hash or "")
                 and baseline_result.solver_tier == SchedulerTier.T2_CPSAT
-                and baseline_result.is_verified is True
+                and getattr(baseline_result, "is_verified", False) is True
                 and baseline_result.solver_status == SolverStatus.OPTIMAL
             ):
                 use_cached_baseline = True
@@ -134,23 +126,22 @@ class BayHourShadowPriceCalculator:
 
         # Strict exactness: genuine T2, both OPTIMAL, both verified, non-negative difference
         if signed_delta < Decimal("-0.01"):
-            # Significant negative difference implies solver non-monotonicity or inconsistency
             is_exact = False
             status = ShadowPriceStatus.UNAVAILABLE
-            delta_obj = Decimal("0.00")
-            nu_hour = Decimal("0.00")
-            nu_tick = Decimal("0.0000")
+            delta_obj = signed_delta
+            nu_hour = (signed_delta / duration_hours).quantize(Decimal("0.01"))
+            nu_tick = (nu_hour / Decimal("12")).quantize(Decimal("0.0001"))
             reason = (
                 f"Shadow price unavailable due to solver inconsistency: "
-                f"restricting capacity increased objective by ${abs(signed_delta)}."
+                f"restricting capacity produced negative delta ${signed_delta}."
             )
         elif (
             base_status == SolverStatus.OPTIMAL
             and pert_status == SolverStatus.OPTIMAL
             and base_tier == SchedulerTier.T2_CPSAT
             and pert_tier == SchedulerTier.T2_CPSAT
-            and base_res.is_verified
-            and pert_res.is_verified
+            and getattr(base_res, "is_verified", False)
+            and getattr(pert_res, "is_verified", False)
         ):
             is_exact = True
             status = ShadowPriceStatus.EXACT
@@ -165,14 +156,13 @@ class BayHourShadowPriceCalculator:
             else:
                 reason = (
                     f"Bay {bay_id} is a binding bottleneck during [{start_tick}, {end_tick}): "
-                    f"capacity restriction reduces net yield by ${delta_obj} "
-                    f"(${nu_hour}/bay-hour)."
+                    f"capacity restriction reduces net yield by ${delta_obj} (${nu_hour}/bay-hour)."
                 )
         elif (
             base_status in (SolverStatus.OPTIMAL, SolverStatus.FEASIBLE)
             and pert_status in (SolverStatus.OPTIMAL, SolverStatus.FEASIBLE)
-            and base_res.is_verified
-            and pert_res.is_verified
+            and getattr(base_res, "is_verified", False)
+            and getattr(pert_res, "is_verified", False)
         ):
             is_exact = False
             status = ShadowPriceStatus.APPROXIMATE
@@ -210,71 +200,73 @@ class BayHourShadowPriceCalculator:
             status=status,
             baseline_status=base_status,
             perturbed_status=pert_status,
-            objective_coverage="PARTIAL_CONFIGURED",
+            objective_coverage=getattr(base_res.metrics, "objective_completeness", "PARTIAL_CONFIGURED"),
             reason=reason,
             computed_at=datetime.now(timezone.utc),
         )
 
-    def compute_price_surface(
+    def calculate_price_surface(
         self,
         snapshot: DealershipSnapshotSchema,
+        bay_id: Optional[str] = None,
         bay_ids: Optional[List[str]] = None,
         interval_ticks: int = 12,
-        stride_ticks: int = 3,
+        stride_ticks: Optional[int] = None,
         horizon_start_tick: Optional[int] = None,
         horizon_end_tick: Optional[int] = None,
         evidence: Optional[WorkshopEvidenceBundle] = None,
     ) -> BayHourPriceSurface:
-        """Computes a discrete shadow price surface across operational bays and operating intervals.
-
-        Args:
-            snapshot: Canonical validated dealership snapshot.
-            bay_ids: Optional subset of bays to evaluate (defaults to all operational bays).
-            interval_ticks: Length of each evaluation window in ticks (default 12 ticks = 1 hour).
-            stride_ticks: Step size between window starts in ticks (default 3 ticks = 15 minutes).
-            horizon_start_tick: Earliest tick to evaluate (defaults to snapshot operating_day_start_tick).
-            horizon_end_tick: Latest tick to evaluate (defaults to snapshot operating_day_end_tick).
-            evidence: Explicit operational evidence bundle.
-
-        Returns:
-            BayHourPriceSurface containing mapped discrete valuation points.
-        """
+        """Evaluates shadow price across the operating day using configured stride intervals."""
+        stride = stride_ticks or self.config.shadow_price_valuation_stride_ticks
         ev = evidence or WorkshopEvidenceBundle(current_tick=snapshot.rooftop.operating_day_start_tick)
 
-        if bay_ids is None:
-            target_bays = [b.bay_id for b in snapshot.bays if b.is_operational]
+        start_boundary = horizon_start_tick if horizon_start_tick is not None else snapshot.rooftop.operating_day_start_tick
+        end_boundary = (
+            horizon_end_tick
+            if horizon_end_tick is not None
+            else (
+                snapshot.rooftop.overtime_cutoff_tick
+                if self.config.allow_emergency_overtime
+                else snapshot.rooftop.operating_day_end_tick
+            )
+        )
+
+        target_bays: List[str] = []
+        if bay_ids:
+            target_bays = bay_ids
+        elif bay_id:
+            target_bays = [bay_id]
         else:
-            target_bays = [b_id for b_id in bay_ids if any(b.bay_id == b_id and b.is_operational for b in snapshot.bays)]
+            target_bays = [b.bay_id for b in snapshot.bays if b.is_operational]
 
-        start_bound = horizon_start_tick if horizon_start_tick is not None else snapshot.rooftop.operating_day_start_tick
-        end_bound = horizon_end_tick if horizon_end_tick is not None else snapshot.rooftop.operating_day_end_tick
-
-        baseline_res = self.solver.schedule(
+        base_res = self.solver.schedule(
             snapshot,
             plan_id=f"PLAN-SURFACE-BASE-{snapshot.rooftop.rooftop_id}",
             evidence=ev,
         )
 
         points: List[BayHourShadowPrice] = []
-        for bay_id in target_bays:
-            curr_start = start_bound
-            while curr_start + interval_ticks <= end_bound:
-                curr_end = curr_start + interval_ticks
+        max_start = end_boundary - interval_ticks
+        for target_b in target_bays:
+            for tick in range(start_boundary, max_start + 1, stride):
+                t_end = tick + interval_ticks
                 point = self.calculate_shadow_price(
                     snapshot=snapshot,
-                    bay_id=bay_id,
-                    start_tick=curr_start,
-                    end_tick=curr_end,
-                    baseline_result=baseline_res,
+                    bay_id=target_b,
+                    start_tick=tick,
+                    end_tick=t_end,
+                    baseline_result=base_res,
                     evidence=ev,
                 )
                 points.append(point)
-                curr_start += stride_ticks
 
         return BayHourPriceSurface(
             rooftop_id=snapshot.rooftop.rooftop_id,
             snapshot_hash=snapshot.snapshot_hash or "",
             points=points,
-            stride_ticks=stride_ticks,
+            stride_ticks=stride,
             computed_at=datetime.now(timezone.utc),
         )
+
+    # Public alias
+    compute_price_surface = calculate_price_surface

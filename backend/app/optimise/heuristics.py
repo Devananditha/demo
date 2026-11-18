@@ -1,21 +1,21 @@
-"""T1 Deterministic Constructive Earliest-Fit Bitset Dispatch Scheduler.
+"""Deterministic T1 Bitset Scheduler for ServiceYield AI Optimise Engine.
 
 Authoritative Reference:
-- docs/03_PRODUCT_REQUIREMENTS.md (Section 3: Module 2 Optimise)
-- docs/04_EXACT_NOVELTY_AND_SHADOW_PRICE.md
+- docs/03_PRODUCT_REQUIREMENTS.md (Section 3: Optimise)
 - docs/08_SHARED_CONSTRAINTS_C1_C7.md
+- docs/09_API_AND_MODULE_CONTRACTS.md (Section 2.3)
 - docs/10_S_MATH_01_GOLDEN_FIXTURE.md
 - docs/12_VERIFICATION_AND_REVALIDATION.md
-- docs/14_FINANCIAL_MODEL_AND_ASSUMPTIONS.md (A3: $120/hr sold labor)
+- docs/14_FINANCIAL_MODEL_AND_ASSUMPTIONS.md (A3: $120/hr sold labor, nu = $2.00/min = $120/hr)
 - docs/18_PHASED_IMPLEMENTATION_ROADMAP.md (Task 1.4)
 
-Design Guarantees:
-1. True integer bitset masks for constant-time O(1) interval collision testing.
-2. Inviolable hard constraints C1–C7 (eligibility, parts release, precedence, exclusivity, shifts, breaks).
-3. Zero manufactured evidence: strict customer authorization gate (C7) and execution progress requirements.
-4. Transitive precedence closure: a successor is never scheduled if its incomplete predecessor failed to schedule.
-5. Vehicle physical state gates: immobilized lifts locked; holding vehicles require movement delays (Delta t_move = 2).
-6. Dual verification: Certified PASS by independent L4 Sweep-Line Oracle AND Supplemental Audit Oracle.
+Mathematical Principles:
+1. Pure integer bitset occupancy representations over discrete 5-minute ticks [0, 288].
+2. Immutable stable sort key: (-priority, promise_tick, sequence_order, duration_ticks, task_id).
+3. Non-overlapping resource intervals: Technician, Bay, Lunch Break, Shift, Movement, Vehicle.
+4. Hard gates: C1 eligibility, C2 parts, C3 precedence DAG, C4 exclusivity, C5 vehicle physical states/movement, C6 shifts/fairness, C7 customer authorizations.
+5. Infallible fallback: sub-millisecond execution, zero external solver dependencies.
+6. Dual verification: candidate plans must be certified by both L4 Sweep-Line Oracle and Supplemental Audit Oracle.
 """
 
 from collections import defaultdict
@@ -27,6 +27,7 @@ from app.optimise.config import OptimiseConfig
 from app.optimise.evidence import WorkshopEvidenceBundle
 from app.optimise.models import (
     ObjectiveMetrics,
+    RepairOrderCompletionStatus,
     ScheduleResult,
     SchedulerTier,
     SolverStatus,
@@ -49,7 +50,7 @@ from app.verifier.sweep_oracle import SweepLineOracle
 class BitsetOccupancyGrid:
     """Fast discrete-tick integer bitset occupancy grid over horizon [0, 288].
     
-    Uses Python arbitrary-precision integers as bitmasks for true O(1) interval collision testing.
+    Uses Python arbitrary-precision integers as bitmasks for true bitwise interval collision testing.
     mask(s, e) = ((1 << (e - s)) - 1) << s
     collision = (current_mask & interval_mask) != 0
     """
@@ -58,6 +59,7 @@ class BitsetOccupancyGrid:
         self.horizon_ticks = horizon_ticks
         self._tech_busy: Dict[str, int] = defaultdict(int)
         self._bay_busy: Dict[str, int] = defaultdict(int)
+        self._porter_busy: Dict[str, int] = defaultdict(int)
 
     @staticmethod
     def interval_mask(start_tick: int, end_tick: int) -> int:
@@ -66,26 +68,32 @@ class BitsetOccupancyGrid:
             return 0
         return ((1 << (end_tick - start_tick)) - 1) << start_tick
 
-    def mark_interval_busy(self, target: Any, start_tick: int, end_tick: int) -> None:
-        """Marks interval [start_tick, end_tick) as busy in the target mask or collection."""
+    def mark_interval_busy(self, target: Any, start_tick: int, end_tick: int) -> int:
+        """Marks interval [start_tick, end_tick) as busy in target bitmask or list."""
+        if start_tick >= end_tick:
+            return target if isinstance(target, int) else 0
         s = max(0, start_tick)
         e = min(self.horizon_ticks, end_tick)
-        if isinstance(target, list):
-            # Backwards compatibility if passed a boolean list
+        mask = self.interval_mask(s, e)
+        if isinstance(target, int):
+            return target | mask
+        elif isinstance(target, list):
             for t in range(s, e):
                 target[t] = True
+            return 0
+        return 0
 
     def is_interval_free(self, mask_or_list: Any, start_tick: int, end_tick: int) -> bool:
         """True if every tick in [start_tick, end_tick) is unallocated (False / 0)."""
-        s = max(0, start_tick)
-        e = min(self.horizon_ticks, end_tick)
-        if s >= e or start_tick < 0 or end_tick > self.horizon_ticks:
+        if start_tick == end_tick:
+            return True
+        if start_tick > end_tick or start_tick < 0 or end_tick > self.horizon_ticks:
             return False
         if isinstance(mask_or_list, int):
-            mask = self.interval_mask(s, e)
+            mask = self.interval_mask(start_tick, end_tick)
             return (mask_or_list & mask) == 0
         elif isinstance(mask_or_list, list):
-            for t in range(s, e):
+            for t in range(start_tick, end_tick):
                 if mask_or_list[t]:
                     return False
             return True
@@ -102,6 +110,12 @@ class BitsetOccupancyGrid:
             return False
         mask = self.interval_mask(start_tick, end_tick)
         return (self._bay_busy[bay_id] & mask) == 0
+
+    def is_porter_free(self, porter_id: str, start_tick: int, end_tick: int) -> bool:
+        if start_tick >= end_tick or start_tick < 0 or end_tick > self.horizon_ticks:
+            return False
+        mask = self.interval_mask(start_tick, end_tick)
+        return (self._porter_busy[porter_id] & mask) == 0
 
     def allocate(self, tech_id: str, bay_id: str, start_tick: int, end_tick: int) -> None:
         s = max(0, start_tick)
@@ -122,6 +136,16 @@ class BitsetOccupancyGrid:
         mask = self.interval_mask(s, e)
         self._tech_busy[tech_id] |= mask
 
+    def allocate_porter_only(self, porter_id: str, start_tick: int, end_tick: int) -> None:
+        s = max(0, start_tick)
+        e = min(self.horizon_ticks, end_tick)
+        mask = self.interval_mask(s, e)
+        self._porter_busy[porter_id] |= mask
+
+    # Public aliases
+    mark_tech_busy = allocate_tech_only
+    mark_bay_busy = allocate_bay_only
+
 
 class T1BitsetScheduler:
     """Deterministic constructive earliest-fit bitset scheduler."""
@@ -136,17 +160,7 @@ class T1BitsetScheduler:
         evidence: Optional[WorkshopEvidenceBundle] = None,
         blocked_bay_intervals: Optional[List[Tuple[str, int, int]]] = None,
     ) -> ScheduleResult:
-        """Executes deterministic earliest-fit scheduling over the snapshot state.
-        
-        Args:
-            snapshot: Canonical validated dealership snapshot state.
-            plan_id: Identifier for the candidate plan.
-            evidence: Explicit operational evidence bundle (authorizations, progress, weights).
-            blocked_bay_intervals: Optional external bay blocks for shadow-price re-solves.
-            
-        Returns:
-            ScheduleResult with verified candidate plan and complete objective metrics.
-        """
+        """Executes deterministic earliest-fit scheduling over the snapshot state."""
         start_time = time.perf_counter()
         ev = evidence or WorkshopEvidenceBundle(current_tick=snapshot.rooftop.operating_day_start_tick)
         unscheduled_reasons: Dict[str, str] = {}
@@ -193,15 +207,40 @@ class T1BitsetScheduler:
                 if b_id in bays_by_id and b_end > b_start:
                     grid.allocate_bay_only(b_id, b_start, b_end)
 
+        # Pre-allocate existing WIP active/stalled occupancy (Finding B1)
+        for task in snapshot.tasks:
+            status_val = task.status.value if hasattr(task.status, "value") else str(task.status)
+            if status_val in ("IN_PROGRESS", "STALLED"):
+                prog = ev.task_progress.get(task.task_id)
+                if prog and prog.occupied_start_tick is not None:
+                    occ_end = prog.occupied_end_tick if prog.occupied_end_tick is not None else ev.current_tick
+                    if occ_end > prog.occupied_start_tick:
+                        if prog.existing_tech_id:
+                            grid.allocate_tech_only(prog.existing_tech_id, prog.occupied_start_tick, occ_end)
+                        if prog.existing_bay_id:
+                            grid.allocate_bay_only(prog.existing_bay_id, prog.occupied_start_tick, occ_end)
+
         # 3. Handle Vehicles IMMOBILIZED_ON_LIFT (C5)
         # Any vehicle trapped on a lift must retain its assigned bay exclusively
         immobilized_ros = {
             r.ro_id: r for r in snapshot.repair_orders
             if (r.physical_state.value if hasattr(r.physical_state, "value") else str(r.physical_state)) == "IMMOBILIZED_ON_LIFT"
         }
-        immobilized_bay_reservations = {
-            r.ro_id: r.assigned_bay_id for r in immobilized_ros.values() if r.assigned_bay_id
-        }
+        immobilized_bay_reservations: Dict[str, str] = {}
+        bay_to_imm_ro: Dict[str, str] = {}
+        imm_missing_bays: Set[str] = set()
+
+        for r_id, r in immobilized_ros.items():
+            phys_ev = ev.get_vehicle_physical_evidence(r.vehicle_id, r_id)
+            target_bay = (phys_ev.current_bay_id if phys_ev else None) or r.assigned_bay_id
+            if not target_bay:
+                imm_missing_bays.add(r_id)
+            elif target_bay in bay_to_imm_ro:
+                # Conflicting vehicle claiming the same bay!
+                unscheduled_reasons[f"RO_{r_id}"] = f"CONFLICTING_IMMOBILIZED_BAY_OCCUPANCY_{target_bay}"
+            else:
+                immobilized_bay_reservations[r_id] = target_bay
+                bay_to_imm_ro[target_bay] = r_id
 
         # 4. Filter and Sort Incomplete Tasks
         incomplete_tasks: List[TaskSchema] = []
@@ -264,7 +303,7 @@ class T1BitsetScheduler:
                 unscheduled_task_ids.add(task.task_id)
                 continue
 
-            # Task Execution Progress and Remaining Duration
+            # Task Execution Progress and Remaining Duration Evidence (Finding B1)
             effective_duration = ev.get_effective_remaining_duration(
                 task.task_id, task.status, task.estimated_duration_ticks
             )
@@ -273,13 +312,12 @@ class T1BitsetScheduler:
                 unscheduled_task_ids.add(task.task_id)
                 continue
             if effective_duration <= 0:
-                # Completed or non-positive
                 completed_task_ids.add(task.task_id)
                 continue
 
             duration = effective_duration
 
-            # C3 Precedence Closure Gate: If any incomplete predecessor failed to schedule, fail immediately
+            # C3 Precedence Closure Gate
             pred_blocked = False
             earliest_pred_tick = horizon_start
             for pred_id in task.predecessor_task_ids:
@@ -316,10 +354,32 @@ class T1BitsetScheduler:
                 unscheduled_task_ids.add(task.task_id)
                 continue
 
+            # C1 Parts Fitment Evidence Gate (Finding A2)
+            phys_ev = ev.get_vehicle_physical_evidence(ro.vehicle_id, ro.ro_id)
+            if phys_ev is None:
+                unscheduled_reasons[task.task_id] = f"MISSING_VEHICLE_EVIDENCE_{ro.vehicle_id}"
+                unscheduled_task_ids.add(task.task_id)
+                continue
+
+            if phys_ev.fitment_verified is None:
+                unscheduled_reasons[task.task_id] = f"UNVERIFIED_PARTS_FITMENT_{ro.vehicle_id}"
+                unscheduled_task_ids.add(task.task_id)
+                continue
+            elif phys_ev.fitment_verified is False:
+                unscheduled_reasons[task.task_id] = f"REJECTED_PARTS_FITMENT_{ro.vehicle_id}"
+                unscheduled_task_ids.add(task.task_id)
+                continue
+
+            # C1 Vehicle Weight Evidence Gate (Finding A3)
+            if phys_ev.vehicle_weight_lbs is None:
+                unscheduled_reasons[task.task_id] = f"MISSING_VEHICLE_WEIGHT_EVIDENCE_{ro.vehicle_id}"
+                unscheduled_task_ids.add(task.task_id)
+                continue
+            vehicle_weight = phys_ev.vehicle_weight_lbs
+
             # C5 Vehicle Physical State & Holding Staging Gate
-            phys_ev = ev.vehicle_evidence.get(ro.vehicle_id) or ev.vehicle_evidence.get(ro.ro_id)
             state_val = (
-                phys_ev.physical_state.value if (phys_ev and hasattr(phys_ev.physical_state, "value"))
+                phys_ev.physical_state.value if hasattr(phys_ev.physical_state, "value")
                 else (ro.physical_state.value if hasattr(ro.physical_state, "value") else str(ro.physical_state))
             )
             if state_val == "UNKNOWN":
@@ -327,28 +387,45 @@ class T1BitsetScheduler:
                 unscheduled_task_ids.add(task.task_id)
                 continue
 
-            is_holding = phys_ev.is_in_holding if phys_ev else (state_val == "IN_HOLDING")
-            earliest_move_tick = (ev.current_tick + 2) if is_holding else horizon_start
+            # Immobilized vehicle check (Primary Task C)
+            if state_val == "IMMOBILIZED_ON_LIFT":
+                if ro.ro_id in imm_missing_bays:
+                    unscheduled_reasons[task.task_id] = f"IMMOBILIZED_VEHICLE_MISSING_ASSIGNED_BAY_{ro.ro_id}"
+                    unscheduled_task_ids.add(task.task_id)
+                    continue
 
+            is_holding = phys_ev.is_in_holding if phys_ev else (state_val == "IN_HOLDING")
+            if is_holding and not ev.available_porter_tech_ids:
+                unscheduled_reasons[task.task_id] = f"NO_PORTER_OR_TECH_AVAILABLE_FOR_MOVE_{ro.ro_id}"
+                unscheduled_task_ids.add(task.task_id)
+                continue
+
+            earliest_move_tick = (ev.current_tick + 2) if is_holding else horizon_start
             earliest_possible_start = max(horizon_start, earliest_part_tick, earliest_pred_tick, earliest_move_tick)
 
-            # C1 Skills Match: Find eligible active technicians
-            eligible_techs = [
-                t for t in snapshot.technicians
-                if t.is_active and task.required_skill in t.skill_certifications
-            ]
+            # WIP Locked Assignments (Finding B1)
+            prog = ev.task_progress.get(task.task_id)
+            locked_bay_id = prog.existing_bay_id if (prog and prog.is_assignment_locked) else None
+            locked_tech_id = prog.existing_tech_id if (prog and prog.is_assignment_locked) else None
+
+            # C1 Skills Match
+            if locked_tech_id:
+                eligible_techs = [
+                    t for t in snapshot.technicians
+                    if t.tech_id == locked_tech_id and t.is_active and task.required_skill in t.skill_certifications
+                ]
+            else:
+                eligible_techs = [
+                    t for t in snapshot.technicians
+                    if t.is_active and task.required_skill in t.skill_certifications
+                ]
+
             if not eligible_techs:
                 unscheduled_reasons[task.task_id] = f"NO_ELIGIBLE_TECHNICIAN_SKILL_{task.required_skill}"
                 unscheduled_task_ids.add(task.task_id)
                 continue
 
             # C1 Bay Compatibility & Weight Rating Gate
-            vehicle_weight = (
-                phys_ev.vehicle_weight_lbs
-                if (phys_ev and phys_ev.vehicle_weight_lbs is not None)
-                else getattr(ro, "vehicle_weight_lbs", 0)
-            )
-
             target_bay_id = immobilized_bay_reservations.get(ro.ro_id)
             if target_bay_id:
                 assigned_bay = bays_by_id.get(target_bay_id)
@@ -359,6 +436,18 @@ class T1BitsetScheduler:
                     or assigned_bay.lifting_capacity_lbs < vehicle_weight
                 ):
                     unscheduled_reasons[task.task_id] = f"IMMOBILIZED_BAY_INCOMPATIBLE_{target_bay_id}"
+                    unscheduled_task_ids.add(task.task_id)
+                    continue
+                compatible_bays = [assigned_bay]
+            elif locked_bay_id:
+                assigned_bay = bays_by_id.get(locked_bay_id)
+                if (
+                    not assigned_bay
+                    or not assigned_bay.is_operational
+                    or assigned_bay.bay_type != task.required_bay_type
+                    or assigned_bay.lifting_capacity_lbs < vehicle_weight
+                ):
+                    unscheduled_reasons[task.task_id] = f"LOCKED_BAY_INCOMPATIBLE_{locked_bay_id}"
                     unscheduled_task_ids.add(task.task_id)
                     continue
                 compatible_bays = [assigned_bay]
@@ -383,6 +472,24 @@ class T1BitsetScheduler:
             scheduled = False
             for t_start in range(earliest_possible_start, horizon_end - duration + 1):
                 t_end = t_start + duration
+
+                # C5 Movement Resource Availability Check
+                allocated_porter = None
+                if is_holding:
+                    m_start = t_start - 2
+                    m_end = t_start
+                    for p_id in sorted(ev.available_porter_tech_ids):
+                        if p_id in techs_by_id:
+                            if grid.is_tech_free(p_id, m_start, m_end):
+                                allocated_porter = p_id
+                                break
+                        else:
+                            if grid.is_porter_free(p_id, m_start, m_end):
+                                allocated_porter = p_id
+                                break
+                    if not allocated_porter:
+                        continue  # Cannot move vehicle at this time
+
                 for bay in compatible_bays:
                     if not grid.is_bay_free(bay.bay_id, t_start, t_end):
                         continue
@@ -392,6 +499,12 @@ class T1BitsetScheduler:
 
                         # Feasible slot found! Allocate atomically
                         grid.allocate(tech.tech_id, bay.bay_id, t_start, t_end)
+                        if is_holding and allocated_porter:
+                            if allocated_porter in techs_by_id:
+                                grid.allocate_tech_only(allocated_porter, t_start - 2, t_start)
+                            else:
+                                grid.allocate_porter_only(allocated_porter, t_start - 2, t_start)
+
                         assignments.append(
                             ScheduledAssignment(
                                 task_id=task.task_id,
@@ -415,19 +528,22 @@ class T1BitsetScheduler:
                 unscheduled_reasons[task.task_id] = "NO_FEASIBLE_INTERVAL_WITHIN_HORIZON"
                 unscheduled_task_ids.add(task.task_id)
 
-        # 6. Reconstruct Vehicle Occupancy for Immobilized Vehicles
+        # 6. Reconstruct Vehicle Occupancy for Immobilized Vehicles (Primary Task C)
         for imm_ro_id, imm_ro in immobilized_ros.items():
-            if imm_ro.assigned_bay_id:
+            assigned_bay = immobilized_bay_reservations.get(imm_ro_id)
+            if assigned_bay:
+                phys_ev = ev.get_vehicle_physical_evidence(imm_ro.vehicle_id, imm_ro_id)
+                occ_start = phys_ev.occupancy_start_tick if (phys_ev and phys_ev.occupancy_start_tick is not None) else ev.current_tick
                 imm_assignments = [a for a in assignments if a.ro_id == imm_ro_id]
                 if imm_assignments:
                     first_start = min(a.start_tick for a in imm_assignments)
-                    if first_start > horizon_start:
+                    if first_start > occ_start:
                         vehicle_occupancies.append(
                             VehicleBayOccupancy(
                                 vehicle_id=imm_ro.vehicle_id,
                                 ro_id=imm_ro.ro_id,
-                                bay_id=imm_ro.assigned_bay_id,
-                                start_tick=horizon_start,
+                                bay_id=assigned_bay,
+                                start_tick=occ_start,
                                 end_tick=first_start,
                             )
                         )
@@ -436,35 +552,50 @@ class T1BitsetScheduler:
                         VehicleBayOccupancy(
                             vehicle_id=imm_ro.vehicle_id,
                             ro_id=imm_ro.ro_id,
-                            bay_id=imm_ro.assigned_bay_id,
-                            start_tick=horizon_start,
+                            bay_id=assigned_bay,
+                            start_tick=occ_start,
                             end_tick=horizon_end,
                         )
                     )
 
-        # 7. Calculate Objective Metrics
-        total_labor_ticks = sum(
-            tasks_by_id[a.task_id].estimated_duration_ticks for a in assignments if a.task_id in tasks_by_id
-        )
+        # 7. Calculate Objective Metrics & Incomplete RO Analysis (Finding F1 & F2)
+        total_labor_ticks = sum(a.end_tick - a.start_tick for a in assignments)
         gross_contrib = (Decimal(str(total_labor_ticks)) * self.config.labor_contribution_per_hour_usd) / Decimal("12")
 
-        weighted_lateness_ticks = 0
+        # RO Completion Lifecycle Analysis
+        ro_completion_statuses: Dict[str, str] = {}
+        uncompleted_ros_count = 0
         scheduled_ro_ids = {a.ro_id for a in assignments}
-        for ro_id in scheduled_ro_ids:
-            ro = ros_by_id[ro_id]
-            ro_assignments = [a for a in assignments if a.ro_id == ro_id]
-            if ro_assignments:
+        weighted_lateness_ticks = 0
+
+        for ro in snapshot.repair_orders:
+            ro_tasks = [t for t in snapshot.tasks if t.ro_id == ro.ro_id]
+            scheduled_t_ids = {a.task_id for a in assignments if a.ro_id == ro.ro_id}
+            completed_t_ids = {t.task_id for t in ro_tasks if (t.status.value if hasattr(t.status, "value") else str(t.status)) == "COMPLETED"}
+
+            if all(t.task_id in completed_t_ids for t in ro_tasks):
+                ro_completion_statuses[ro.ro_id] = RepairOrderCompletionStatus.COMPLETED.value
+            elif set(t.task_id for t in ro_tasks).issubset(scheduled_t_ids | completed_t_ids):
+                ro_completion_statuses[ro.ro_id] = RepairOrderCompletionStatus.FULLY_SCHEDULED.value
+                ro_assignments = [a for a in assignments if a.ro_id == ro.ro_id]
                 completion_tick = max(a.end_tick for a in ro_assignments)
                 lateness_ticks = max(0, completion_tick - ro.promise_tick)
                 weighted_lateness_ticks += ro.priority_weight * lateness_ticks
+            else:
+                uncompleted_ros_count += 1
+                if any(a.task_id in scheduled_t_ids for a in ro_tasks):
+                    ro_completion_statuses[ro.ro_id] = RepairOrderCompletionStatus.PARTIALLY_SCHEDULED.value
+                elif any("PART_NOT_READY" in unscheduled_reasons.get(t.task_id, "") for t in ro_tasks):
+                    ro_completion_statuses[ro.ro_id] = RepairOrderCompletionStatus.BLOCKED_BY_PARTS.value
+                elif any("UNAUTHORIZED" in unscheduled_reasons.get(t.task_id, "") or "MISSING_" in unscheduled_reasons.get(t.task_id, "") for t in ro_tasks):
+                    ro_completion_statuses[ro.ro_id] = RepairOrderCompletionStatus.BLOCKED_BY_EVIDENCE.value
+                else:
+                    ro_completion_statuses[ro.ro_id] = RepairOrderCompletionStatus.UNSCHEDULABLE_IN_HORIZON.value
 
         lateness_penalty = Decimal(str(weighted_lateness_ticks * 5)) * self.config.lateness_penalty_per_minute_usd
 
         # Calculate Avoidable Idle Bay Blocked Ticks
-        bay_blocked_ticks = 0
-        for occ in vehicle_occupancies:
-            bay_blocked_ticks += (occ.end_tick - occ.start_tick)
-
+        bay_blocked_ticks = sum(occ.end_tick - occ.start_tick for occ in vehicle_occupancies)
         bay_blocked_penalty = Decimal(str(bay_blocked_ticks * 5)) * self.config.blocked_bay_penalty_per_minute_usd
         net_obj = gross_contrib - lateness_penalty - bay_blocked_penalty
 
@@ -482,9 +613,11 @@ class T1BitsetScheduler:
             objective_completeness="PARTIAL_CONFIGURED",
             configured_terms=["gross_contribution", "lateness_penalty", "bay_blocked_penalty"],
             unconfigured_terms=["sourcing_cost", "schedule_churn_penalty"],
+            ro_completion_statuses=ro_completion_statuses,
+            uncompleted_ros_count=uncompleted_ros_count,
         )
 
-        # 8. Candidate Schedule Plan Assembly (Explicit verified authorizations only)
+        # 8. Candidate Schedule Plan Assembly
         verified_authorizations = {r_id: True for r_id in scheduled_ro_ids if ev.is_ro_authorized(r_id)}
         verified_freight = {
             o_id: True for o_id, appr in ev.manager_freight_approvals.items() if appr.is_approved
@@ -501,7 +634,7 @@ class T1BitsetScheduler:
             allow_emergency_overtime=self.config.allow_emergency_overtime,
         )
 
-        # 9. Dual Independent Verification: L4 Sweep-Line Oracle AND Supplemental Audit
+        # 9. Dual Independent Verification (Primary Task E)
         oracle = SweepLineOracle(snapshot)
         verification_result = oracle.verify_plan(candidate_plan)
 
@@ -510,6 +643,7 @@ class T1BitsetScheduler:
 
         is_verified = verification_result.is_valid
         is_fully_certified = is_verified and supp_result.is_valid
+        is_actionable = is_fully_certified and len(supp_result.coverage_gaps) == 0
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
 
@@ -530,6 +664,8 @@ class T1BitsetScheduler:
             is_verified=is_verified,
             supplemental_audit_result=supp_result.model_dump(),
             is_fully_certified=is_fully_certified,
+            is_actionable=is_actionable,
             evidence_coverage_gaps=supp_result.coverage_gaps,
-            degradation_reason=None if is_verified else f"T1 plan failed L4 verification with {verification_result.total_violations} violations",
+            ro_completion_statuses=ro_completion_statuses,
+            degradation_reason=None if is_fully_certified else f"T1 plan uncertified: L4 valid={is_verified}, Supp valid={supp_result.is_valid}",
         )

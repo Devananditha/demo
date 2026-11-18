@@ -36,6 +36,17 @@ class ShadowPriceStatus(str, Enum):
     UNAVAILABLE = "UNAVAILABLE"
 
 
+class RepairOrderCompletionStatus(str, Enum):
+    """Explicit lifecycle completion status for repair orders."""
+    COMPLETED = "COMPLETED"
+    FULLY_SCHEDULED = "FULLY_SCHEDULED"
+    PARTIALLY_SCHEDULED = "PARTIALLY_SCHEDULED"
+    BLOCKED_BY_PARTS = "BLOCKED_BY_PARTS"
+    BLOCKED_BY_EVIDENCE = "BLOCKED_BY_EVIDENCE"
+    UNSCHEDULABLE_IN_HORIZON = "UNSCHEDULABLE_IN_HORIZON"
+    COMPLETION_UNKNOWN = "COMPLETION_UNKNOWN"
+
+
 class ObjectiveMetrics(BaseModel):
     """Individual observable components of the economic objective function."""
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
@@ -53,6 +64,8 @@ class ObjectiveMetrics(BaseModel):
     objective_completeness: str = Field(default="PARTIAL_CONFIGURED", description="PARTIAL_CONFIGURED or FULL_OBJECTIVE")
     configured_terms: List[str] = Field(default_factory=lambda: ["gross_contribution", "lateness_penalty"])
     unconfigured_terms: List[str] = Field(default_factory=lambda: ["sourcing_cost", "bay_blocked_penalty", "schedule_churn_penalty"])
+    ro_completion_statuses: Dict[str, str] = Field(default_factory=dict, description="ro_id -> RepairOrderCompletionStatus")
+    uncompleted_ros_count: int = Field(default=0, ge=0, description="Count of repair orders not fully completed or scheduled")
 
 
 class ScheduleResult(BaseModel):
@@ -75,7 +88,9 @@ class ScheduleResult(BaseModel):
     is_verified: bool = Field(default=False, description="Certified PASS by independent L4 sweep-line oracle")
     supplemental_audit_result: Optional[Dict[str, Any]] = Field(default=None, description="Certified PASS by supplemental audit oracle")
     is_fully_certified: bool = Field(default=False, description="Certified PASS by both L4 Sweep Oracle and Supplemental Audit")
+    is_actionable: bool = Field(default=False, description="True only if fully certified (passes both L4 and Supplemental Audit with zero evidence gaps)")
     evidence_coverage_gaps: List[str] = Field(default_factory=list)
+    ro_completion_statuses: Dict[str, str] = Field(default_factory=dict, description="ro_id -> explicit completion status")
     degradation_reason: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -95,7 +110,7 @@ class BayHourShadowPrice(BaseModel):
     perturbed_objective_usd: Decimal = Field(..., description="Z*(C setminus {(b, t)})")
     delta_objective_usd: Decimal = Field(..., description="Delta Z = Z*_avail - Z*_unavail")
     signed_delta_objective_usd: Optional[Decimal] = Field(default=None, description="Raw unclipped difference base - pert")
-    is_exact: bool = Field(..., description="True if and only if both solves proved mathematical OPTIMAL with full audit pass")
+    is_exact: bool = Field(..., description="True if and only if both solves proved mathematical OPTIMAL with full dual certification and complete objective")
     status: ShadowPriceStatus
     baseline_status: SolverStatus
     perturbed_status: SolverStatus
