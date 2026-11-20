@@ -70,6 +70,16 @@ export const BaselineCapacityBoard: React.FC = () => {
   const unassignedROs = stateData?.repair_orders.filter((ro) => !ro.assigned_bay_id) || [];
   const immobilizedROId = assignedROs.find((ro) => ro.physical_state === 'IMMOBILIZED_ON_LIFT')?.ro_id || 'RO-104';
 
+  // Derive occupied and free bay counts from distinct assigned bay IDs
+  const occupiedBayIds = new Set(
+    stateData?.repair_orders
+      .map((ro) => ro.assigned_bay_id)
+      .filter((bayId): bayId is string => Boolean(bayId)) || []
+  );
+  const totalBaysCount = CANONICAL_BAYS.length;
+  const occupiedBaysCount = CANONICAL_BAYS.filter((bay) => occupiedBayIds.has(bay.id)).length;
+  const freeBaysCount = Math.max(0, totalBaysCount - occupiedBaysCount);
+
   return (
     <div className="space-y-6">
       {/* Stage Header Banner */}
@@ -153,7 +163,7 @@ export const BaselineCapacityBoard: React.FC = () => {
             </div>
 
             <div className="text-[11px] text-slate-400">
-              Active Bays: <span className="text-white font-bold">{assignedROs.length} / {CANONICAL_BAYS.length}</span> &bull; Holding Queue: <span className="text-amber-400 font-bold">{unassignedROs.length}</span>
+              Active Bays: <span className="text-white font-bold">{occupiedBaysCount} / {totalBaysCount}</span> &bull; Holding Queue: <span className="text-amber-400 font-bold">{unassignedROs.length}</span>
             </div>
           </div>
         )}
@@ -236,7 +246,7 @@ export const BaselineCapacityBoard: React.FC = () => {
                     <span>CRITICAL OPERATIONAL BOTTLENECK</span>
                   </span>
                   <span className="text-xs font-mono text-slate-400">
-                    Lifting Bay Lockout (Constraint C5 Violation Threat)
+                    Lifting Bay Lockout (Constraint C5 Physical-State Constraint)
                   </span>
                 </div>
                 <h3 className="text-base font-bold text-white tracking-tight">
@@ -246,9 +256,10 @@ export const BaselineCapacityBoard: React.FC = () => {
                   Repair order <strong className="text-rose-400 font-mono">{immobilizedROId}</strong> is currently in{' '}
                   <strong className="text-rose-300 font-mono">STALLED</strong> status with physical state{' '}
                   <strong className="text-rose-300 font-mono">IMMOBILIZED_ON_LIFT</strong> inside{' '}
-                  <strong className="text-white font-mono">BAY-01</strong> (Heavy Diagnostic Lift). Because transmission
-                  teardown is incomplete and replacement solenoids are delayed in transit, the vehicle cannot be rolled
-                  off the lift or safely relocated.
+                  <strong className="text-white font-mono">BAY-01</strong> (Heavy Diagnostic Lift). Transmission teardown
+                  is already completed, but the subsequent solenoid replacement and reassembly task is stalled awaiting
+                  usable replacement-part availability. Under physical constraint C5, the vehicle cannot be rolled off
+                  the lift or safely relocated until repair is completed.
                 </p>
                 <div className="pt-1 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-mono text-slate-400 border-t border-[#262030]">
                   <span>
@@ -258,7 +269,7 @@ export const BaselineCapacityBoard: React.FC = () => {
                     Physical State: <span className="text-rose-400 font-bold">IMMOBILIZED_ON_LIFT</span>
                   </span>
                   <span>
-                    Queue Starvation: <span className="text-amber-400 font-bold">{unassignedROs.length} ROs blocked from bay entry</span>
+                    Unassigned Queue: <span className="text-amber-400 font-bold">{unassignedROs.length} ROs without assigned bay</span>
                   </span>
                 </div>
               </div>
@@ -268,10 +279,10 @@ export const BaselineCapacityBoard: React.FC = () => {
                   Stall Utilization
                 </div>
                 <div className="text-2xl font-bold font-mono text-white mt-1">
-                  0 Bays Free
+                  {freeBaysCount} {freeBaysCount === 1 ? 'Bay' : 'Bays'} Free
                 </div>
                 <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                  3 of 3 Bays Occupied
+                  {occupiedBaysCount} of {totalBaysCount} Bays Occupied
                 </div>
               </div>
             </div>
@@ -290,7 +301,7 @@ export const BaselineCapacityBoard: React.FC = () => {
                 </p>
               </div>
               <span className="text-xs font-mono text-slate-400">
-                100% Physical Bay Utilization
+                {occupiedBaysCount === totalBaysCount ? '100%' : `${Math.round((occupiedBaysCount / totalBaysCount) * 100)}%`} Physical Bay Utilization ({freeBaysCount} free)
               </span>
             </div>
 
@@ -405,13 +416,13 @@ export const BaselineCapacityBoard: React.FC = () => {
                   <span>Holding Area & Unassigned Queue ({unassignedROs.length} Repair Orders)</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Vehicles staged in holding lots or pending bay assignment. No speculative or unverified assignments are invented.
+                  Vehicles staged in holding lots or currently unassigned to bays. Distinguishes physical state from readiness blockers.
                 </p>
               </div>
 
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono bg-amber-950/60 text-amber-300 border border-amber-800/50">
                 <Clock className="w-3.5 h-3.5" />
-                <span>Waiting for Bay Availability</span>
+                <span>Unassigned Physical State</span>
               </div>
             </div>
 
@@ -469,9 +480,11 @@ export const BaselineCapacityBoard: React.FC = () => {
 
                       {/* Operational Condition */}
                       <td className="py-3.5 px-4 text-xs font-mono text-slate-400">
-                        {ro.physical_state === 'ROLLABLE'
-                          ? 'Rollable in yard; awaiting standard 2-post lift availability'
-                          : 'Vehicle in holding yard; awaiting diagnostic lift capacity'}
+                        {ro.ro_id === 'RO-105'
+                          ? 'In holding; unassigned (readiness blocked by parts backorder)'
+                          : ro.physical_state === 'ROLLABLE'
+                          ? 'Rollable physical state; currently unassigned to a bay'
+                          : 'In holding physical state; awaiting bay allocation'}
                       </td>
                     </tr>
                   ))}
