@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Header } from './components/Header';
 import { NavigationTabs } from './components/NavigationTabs';
 import { ControlTower } from './pages/ControlTower';
+import { ReadinessRiskDetail } from './pages/ReadinessRiskDetail';
 import { STAGES } from './data/mockData';
 import { Layers, ArrowRight, ShieldAlert } from 'lucide-react';
 
@@ -22,6 +23,8 @@ export const App: React.FC = () => {
         {/* View Routing */}
         {activeStage === 1 ? (
           <ControlTower />
+        ) : activeStage === 2 ? (
+          <ReadinessRiskDetail />
         ) : (
           <div className="bg-sy-card border border-sy-border rounded-lg p-12 text-center space-y-4 shadow-xl">
             <div className="mx-auto w-12 h-12 rounded-full bg-sy-elevated border border-sy-border flex items-center justify-center text-sy-accent">
@@ -40,14 +43,21 @@ export const App: React.FC = () => {
             </div>
             <p className="text-xs text-slate-500 max-w-md mx-auto pt-2 border-t border-sy-border/50">
               This stage is scheduled for implementation in subsequent Decision Replay steps.
-              Return to Stage 1 to view the Workshop Control Tower.
+              Return to Stage 1 to view the Workshop Control Tower or Stage 2 for Readiness & Risk.
             </p>
-            <div className="pt-2">
+            <div className="pt-2 flex justify-center gap-3">
               <button
                 onClick={() => setActiveStage(1)}
                 className="inline-flex items-center space-x-2 px-4 py-2 bg-sy-accent hover:bg-sy-accentHover text-white text-xs font-medium rounded-md transition-colors"
               >
                 <span>Return to Control Tower</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setActiveStage(2)}
+                className="inline-flex items-center space-x-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-md border border-slate-700 transition-colors"
+              >
+                <span>View Stage 2 Readiness</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
