@@ -60,7 +60,7 @@ class OperationalSlack(BaseModel):
 
 class RepairOrderAssessment(BaseModel):
     """Predictive readiness assessment record for a single Repair Order."""
-    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+    model_config = ConfigDict(extra="forbid", validate_assignment=True, populate_by_name=True)
 
     ro_id: str = Field(..., min_length=1)
     snapshot_hash: str = Field(..., min_length=1)
@@ -69,7 +69,10 @@ class RepairOrderAssessment(BaseModel):
     p_delay: float = Field(..., ge=0.0, le=1.0, description="Predicted probability of missing latest feasible start")
     usable_ready_ticks: Optional[QuantileInterval] = Field(default=None)
     slack: Optional[OperationalSlack] = Field(default=None)
-    calibration_status: CalibrationStatus = Field(default=CalibrationStatus.UNCALIBRATED)
+    calibration_status: CalibrationStatus = Field(
+        default=CalibrationStatus.UNCALIBRATED,
+        serialization_alias="calibration",
+    )
     data_freshness_seconds: int = Field(default=0, ge=0)
     has_recovery_alternative: bool = Field(default=False, description="Whether a viable alternative supplier offer exists to recover negative baseline slack")
     best_alternative_usable_tick: Optional[int] = Field(default=None, ge=0, le=288, description="Usable ready tick of best candidate supplier recovery offer")
