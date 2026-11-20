@@ -90,3 +90,69 @@ export interface DealershipStateResponse {
   overtime_cutoff_tick: number;
   repair_orders: DealershipStateItem[];
 }
+
+export interface DisruptionSupplierOption {
+  supplierId: string;
+  supplierName: string;
+  partNumber: string;
+  quotedEtaTick: number;
+  receivingInspectionMinutes: number;
+  usableReadyTick: number;
+  usableReadyTime: string;
+  freightSurchargeUsd: number;
+  status: string;
+  impactSummary: string;
+}
+
+export interface DisruptionTimelineMilestone {
+  tick: number;
+  time: string;
+  label: string;
+  type: string;
+  description: string;
+  badgeColor: 'rose' | 'emerald' | 'amber' | 'orange' | 'slate' | 'purple';
+}
+
+export interface SyntheticDisruptionScenario {
+  scenarioName: string;
+  fixtureVersion: string;
+  classification: string;
+  disruptionType: string;
+  triggerTick: number;
+  triggerTime: string;
+  delayMinutes: number;
+  affectedRoId: string;
+  affectedVehicle: string;
+  affectedCustomer: string;
+  affectedBayId: string;
+  affectedBayName: string;
+  vehicleState: string;
+  constraintNote: string;
+  stalledTask: {
+    taskId: string;
+    description: string;
+    completedPredecessor: string;
+    remainingDurationMinutes: number;
+    remainingDurationTicks: number;
+    requiredSkill: string;
+    requiredBayType: string;
+  };
+  supplierComparison: {
+    baseline: DisruptionSupplierOption;
+    alternative: DisruptionSupplierOption;
+  };
+  downstreamImpact: {
+    impactedRoId: string;
+    impactedVehicle: string;
+    impactedCustomer: string;
+    complaint: string;
+    requiredBayType: string;
+    currentQueueState: string;
+    promisedDelivery: string;
+    estimatedDurationMinutes: number;
+    estimatedDurationTicks: number;
+    priorityWeight: number;
+    dependencyNote: string;
+  };
+  timelineMilestones: DisruptionTimelineMilestone[];
+}
