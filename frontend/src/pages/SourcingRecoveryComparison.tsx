@@ -281,12 +281,13 @@ export const SourcingRecoveryComparison: React.FC<SourcingRecoveryComparisonProp
               <span className="text-slate-400 font-mono">$0.00 Freight</span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              S2 carries <strong>no incremental freight surcharge</strong> ($0.00). However, its part becomes usable at{' '}
-              <strong>4:30 PM (Tick 198)</strong>, which is 30 minutes after RO-104’s customer promised delivery of 4:00 PM (Tick 192).
+              S2 carries <strong>no incremental freight surcharge</strong> ($0.00). However, baseline parts become usable at{' '}
+              <strong>4:30 PM (Tick 198)</strong>, while RO-104’s customer promise deadline is 4:00 PM (Tick 192).
             </p>
             <p className="text-xs text-slate-400 leading-relaxed">
-              With 120 minutes of remaining reassembly work required on TASK-104-02, parts arriving at 4:30 PM leave only 30 minutes
-              of regular shift time before the 5:00 PM (Tick 204) operating day end, forcing work into authorized overtime.
+              Standard operating hours end at 5:00 PM (Tick 204) and the remaining task duration is 120 minutes.
+              Therefore, the remaining task cannot fit within the 30-minute standard operating window between parts arrival and shift end.
+              (This is a factual timing comparison; no authorized overtime execution or completed schedule has been established.)
             </p>
           </div>
 
@@ -403,8 +404,8 @@ export const SourcingRecoveryComparison: React.FC<SourcingRecoveryComparisonProp
               <span>Why Sourcing Cannot Be Decided in Isolation</span>
             </div>
             <p className="text-slate-300 leading-relaxed">
-              If the parts manager evaluates only invoice cost, Option A (S2) appears optimal because it incurs zero incremental
-              freight ($0.00). However, this creates a false economy:
+              If procurement evaluates only invoice cost, Option A (S2) appears attractive because it incurs zero incremental
+              freight ($0.00). However, supplier freight cost alone is insufficient to assess the operational decision:
             </p>
             <ul className="list-disc pl-5 space-y-1 text-slate-400">
               <li>
@@ -416,8 +417,8 @@ export const SourcingRecoveryComparison: React.FC<SourcingRecoveryComparisonProp
                 is completely blocked from entering service, despite requiring zero parts and holding +75 minutes of Predict slack.
               </li>
               <li>
-                Paying $37 for Hotshot S1 is not merely paying for faster shipping on RO-104; it is purchasing an earlier release
-                of the dealership’s sole heavy diagnostic bay, protecting workshop capacity for waiting holding-queue repair orders.
+                Evaluating supplier freight without considering workshop capacity overlooks the downstream impact: supplier timing
+                can directly affect scarce bay availability and downstream repair orders.
               </li>
             </ul>
           </div>
@@ -457,12 +458,14 @@ export const SourcingRecoveryComparison: React.FC<SourcingRecoveryComparisonProp
                 </span>
               </div>
               <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-cyan-950 text-cyan-300 border border-cyan-800 font-semibold self-start sm:self-auto">
-                Evaluated on Screen
+                Fixture Inputs Displayed — Validation Pending
               </span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Verifies ACES/PIES part fitment, supplier quoting validity, delivery windows, and technician certification gates
-              (C1 Eligibility, C2 Part Release). Both S1 and S2 quotes are valid and fitment-certified for ACES-CROSSOVER-2020-AWD.
+              The canonical fixture records both supplier offers (S1 and S2) as ACTIVE, and both reference the same part
+              requirement (PART-REQ-104-SOLENOID) containing the ACES vehicle compatibility reference (ACES-CROSSOVER-2020-AWD).
+              This screen displays these fixture inputs; independent algorithmic validation of supplier eligibility, part fitment,
+              and technician certification gates remains pending.
             </p>
           </div>
 
