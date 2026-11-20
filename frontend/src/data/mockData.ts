@@ -50,8 +50,8 @@ export const STAGES: StageInfo[] = [
     id: 5,
     name: 'Sourcing & Recovery Comparison',
     shortLabel: '5. Sourcing Trade-Off',
-    status: 'upcoming',
-    description: 'Admissible branch-and-bound alternatives: Option A (Wait) vs Option B (Hotshot Courier).',
+    status: 'active',
+    description: 'Capacity-aware supplier offer comparison, bay shadow price reasoning, and decision pipeline.',
   },
   {
     id: 6,
