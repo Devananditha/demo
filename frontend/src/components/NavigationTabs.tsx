@@ -13,7 +13,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({ activeStage, onS
         <div className="flex space-x-1 py-2 min-w-max">
           {STAGES.map((stage) => {
             const isActive = stage.id === activeStage;
-            const isImplemented = stage.id <= 2;
+            const isImplemented = stage.id <= 3;
 
             return (
               <button
@@ -44,7 +44,12 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({ activeStage, onS
                 )}
                 {stage.id === 2 && (
                   <span className="text-[9px] uppercase tracking-wider font-mono px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-800/60">
-                    Live API
+                    API Output
+                  </span>
+                )}
+                {stage.id === 3 && (
+                  <span className="text-[9px] uppercase tracking-wider font-mono px-1.5 py-0.2 rounded bg-amber-950/80 text-amber-300 border border-amber-800/60">
+                    Capacity
                   </span>
                 )}
               </button>
