@@ -35,9 +35,9 @@ export const STAGES: StageInfo[] = [
   {
     id: 3,
     name: 'Baseline Schedule Board',
-    shortLabel: '3. Schedule Board',
-    status: 'upcoming',
-    description: 'T2 CP-SAT discrete 5-min dispatch grid, technician shifts, and bay shadow-price surface strip.',
+    shortLabel: '3. Capacity Board',
+    status: 'active',
+    description: 'Current physical bay occupancy, immobilized lift stall, and unassigned holding queue before optimisation.',
   },
   {
     id: 4,

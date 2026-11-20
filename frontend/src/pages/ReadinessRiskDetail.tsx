@@ -104,7 +104,7 @@ export const ReadinessRiskDetail: React.FC = () => {
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500"></span>
               </span>
               <span className="text-xs font-semibold text-cyan-400 uppercase tracking-wider font-mono">
-                Stage 2 — Live Predict Layer 1 Engine
+                Stage 2 — API-backed Synthetic Predict Output
               </span>
               <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-800/60 font-semibold">
                 Read-Only Prototype
@@ -322,7 +322,7 @@ export const ReadinessRiskDetail: React.FC = () => {
                 <h3 className="text-base font-semibold text-white tracking-tight flex items-center gap-2">
                   <span>Repair Order Predictive Assessments</span>
                   <span className="text-xs font-mono font-medium px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800">
-                    {report.assessments.length} Live Records
+                    {report.assessments.length} API Records
                   </span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
@@ -504,7 +504,7 @@ export const ReadinessRiskDetail: React.FC = () => {
                 Predict Layer 1 API Source: POST /api/v1/predict/readiness &bull; Snapshot: {report.snapshot_hash.slice(0, 16)}...
               </div>
               <div className="text-[11px] text-slate-500 font-mono">
-                Computed: {new Date(report.computed_at).toLocaleTimeString()}
+                Fixed Reference Evaluation: 1:15 PM UTC (Tick 159) &bull; Static Synthetic Snapshot
               </div>
             </div>
           </div>
