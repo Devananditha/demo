@@ -19,7 +19,7 @@ export const KpiCards: React.FC = () => {
           <span className="text-3xl font-bold font-mono text-white tracking-tight">
             {KPI_DATA.activeRos}
           </span>
-          <span className="text-xs text-slate-400 font-medium">RO-101 to RO-106</span>
+          <span className="text-xs text-slate-400 font-medium font-mono">RO-101 to RO-106</span>
         </div>
         <div className="mt-2 text-[11px] text-slate-400 flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
@@ -27,11 +27,11 @@ export const KpiCards: React.FC = () => {
         </div>
       </div>
 
-      {/* Card 2: Technicians Clocked In */}
+      {/* Card 2: Active Technicians */}
       <div className="bg-[#111522] border border-[#1e2638] rounded-xl p-4 shadow-sm hover:border-slate-700 transition-colors">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium text-slate-400 uppercase tracking-wider font-mono">
-            Technicians
+            Active Technicians
           </span>
           <div className="p-2 rounded-lg bg-emerald-950/60 text-emerald-400 border border-emerald-800/40">
             <Users className="w-4 h-4" />
@@ -39,9 +39,9 @@ export const KpiCards: React.FC = () => {
         </div>
         <div className="mt-2 flex items-baseline gap-2">
           <span className="text-3xl font-bold font-mono text-white tracking-tight">
-            {KPI_DATA.techniciansClockedIn}
+            {KPI_DATA.activeTechnicians}
           </span>
-          <span className="text-xs text-emerald-400 font-medium font-mono">100% Active</span>
+          <span className="text-xs text-emerald-400 font-medium font-mono">On Shift</span>
         </div>
         <div className="mt-2 text-[11px] text-slate-400 flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
@@ -49,11 +49,11 @@ export const KpiCards: React.FC = () => {
         </div>
       </div>
 
-      {/* Card 3: Active Service Bays */}
+      {/* Card 3: Operational Bays */}
       <div className="bg-[#111522] border border-[#1e2638] rounded-xl p-4 shadow-sm hover:border-slate-700 transition-colors">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium text-slate-400 uppercase tracking-wider font-mono">
-            Active Bays
+            Operational Bays
           </span>
           <div className="p-2 rounded-lg bg-amber-950/60 text-amber-400 border border-amber-800/40">
             <Warehouse className="w-4 h-4" />
@@ -61,9 +61,9 @@ export const KpiCards: React.FC = () => {
         </div>
         <div className="mt-2 flex items-baseline gap-2">
           <span className="text-3xl font-bold font-mono text-white tracking-tight">
-            {KPI_DATA.activeBays}
+            {KPI_DATA.operationalBays}
           </span>
-          <span className="text-xs text-amber-400 font-medium font-mono">Full Capacity</span>
+          <span className="text-xs text-amber-400 font-medium font-mono">Operational</span>
         </div>
         <div className="mt-2 text-[11px] text-slate-400 flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
@@ -85,11 +85,11 @@ export const KpiCards: React.FC = () => {
           <span className="text-3xl font-bold font-mono text-cyan-300 tracking-tight">
             {KPI_DATA.potentialLaborGross}
           </span>
-          <span className="text-xs text-slate-400 font-medium font-mono">@ $120/hr</span>
+          <span className="text-xs text-slate-400 font-medium font-mono">Illustrative UI Spec</span>
         </div>
         <div className="mt-2 text-[11px] text-slate-400 flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
-          <span>Target labor yield before lateness penalties</span>
+          <span>Illustrative UI-spec estimate (not calculated backend result)</span>
         </div>
       </div>
     </div>

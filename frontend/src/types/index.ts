@@ -18,8 +18,8 @@ export interface RepairOrder {
 
 export interface KpiSummary {
   activeRos: number;
-  techniciansClockedIn: string;
-  activeBays: string;
+  activeTechnicians: string;
+  operationalBays: string;
   potentialLaborGross: string;
 }
 

@@ -25,7 +25,7 @@ export const ControlTower: React.FC = () => {
             </h2>
             <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
               Static benchmark snapshot of dealership repair orders, bay occupancy, physical vehicle states,
-              and deterministic parts readiness status from canonical test fixture (s_math_01).
+              and fixture-validated reference readiness classifications from canonical test fixture (s_math_01).
             </p>
           </div>
 
