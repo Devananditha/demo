@@ -29,7 +29,7 @@ export const STAGES: StageInfo[] = [
     id: 2,
     name: 'Readiness & Risk Detail',
     shortLabel: '2. Readiness & Risk',
-    status: 'upcoming',
+    status: 'active',
     description: 'Predict Layer 1 Empirical-Bayes lead-time distributions and readiness risk quantiles.',
   },
   {
