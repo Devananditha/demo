@@ -12,8 +12,12 @@ from app.schemas.domain import ROStatus, VehiclePhysicalState
 
 @pytest.fixture
 def snapshot():
-    """Loads validated S-MATH-01 synthetic snapshot."""
-    return load_fixture_data()
+    """Loads validated S-MATH-01 synthetic snapshot with fresh updated_at."""
+    snap = load_fixture_data()
+    now = datetime.now(timezone.utc)
+    for ro in snap.repair_orders:
+        ro.updated_at = now
+    return snap
 
 
 @pytest.fixture
@@ -32,6 +36,8 @@ class TestPredictFourStateClassifier:
         """
         # Freeze reference evaluation time to fixture time (2026-11-18 13:15:00 UTC)
         ref_time = datetime(2026, 11, 18, 13, 15, 0, tzinfo=timezone.utc)
+        for ro in snapshot.repair_orders:
+            ro.updated_at = ref_time
         report = classifier.assess_dealership_readiness(snapshot, current_tick=159, now_utc=ref_time)
 
         assessments_by_id = {a.ro_id: a for a in report.assessments}
