@@ -9,12 +9,11 @@ export const EVALUATION_TICK = 159;
 export const OPERATING_DAY_END_TICK = 204;
 export const OVERTIME_CUTOFF_TICK = 228;
 export const SHARED_SNAPSHOT_TIME = '1:15 PM (Tick 159)';
-export const SHARED_SNAPSHOT_TIMESTAMP = '2026-11-18 13:15:00 UTC (Tick 159)';
 
 export const KPI_DATA: KpiSummary = {
   activeRos: 6,
-  techniciansClockedIn: '4 / 4',
-  activeBays: '3 / 3',
+  activeTechnicians: '4 / 4',
+  operationalBays: '3 / 3',
   potentialLaborGross: '$2,840.00',
 };
 
@@ -156,8 +155,8 @@ export const MOCK_REPAIR_ORDERS: RepairOrder[] = [
     technician: 'Not recorded in fixture',
     promisedDelivery: '4:30 PM',
     promiseTick: 198,
-    readinessStatus: 'UNKNOWN',
-    readinessDetails: 'Vehicle in holding staging; awaiting Bay 01 lift release after RO-104 teardown',
+    readinessStatus: 'READY',
+    readinessDetails: 'No parts required; evaluated at tick 159 with positive slack (+75 min)',
     laborGrossUsd: 500.0,
     priorityWeight: 3,
   },

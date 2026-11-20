@@ -56,7 +56,7 @@ export const RepairOrderTable: React.FC = () => {
             </span>
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Static benchmark snapshot across lifting bays, vehicle physical states, and promised customer deliveries from canonical fixture (s_math_01).
+            Static benchmark snapshot with fixture-validated reference classifications (evaluation tick 159) from canonical fixture (s_math_01).
           </p>
         </div>
       </div>
@@ -111,7 +111,7 @@ export const RepairOrderTable: React.FC = () => {
                       {ro.customerComplaint}
                     </div>
                     <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                      Est. Gross: ${ro.laborGrossUsd.toFixed(2)}
+                      Illustrative Est. Gross: ${ro.laborGrossUsd.toFixed(2)} (UI Spec)
                     </div>
                   </td>
 
@@ -163,7 +163,7 @@ export const RepairOrderTable: React.FC = () => {
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span>3 Ready</span>
+            <span>4 Ready</span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-amber-400"></span>
@@ -175,11 +175,11 @@ export const RepairOrderTable: React.FC = () => {
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-slate-400"></span>
-            <span>1 Unknown (RO-106)</span>
+            <span>0 Unknown</span>
           </span>
         </div>
         <div className="font-mono text-[11px] text-slate-400">
-          Snapshot: {SHARED_SNAPSHOT_TIME} &bull; Canonical Dataset: s_math_01_fixture.json
+          Snapshot: {SHARED_SNAPSHOT_TIME} &bull; Fixture-Validated Reference Classifications &bull; Canonical Dataset: s_math_01_fixture.json
         </div>
       </div>
     </div>
