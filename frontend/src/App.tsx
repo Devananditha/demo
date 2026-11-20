@@ -40,7 +40,7 @@ export const App: React.FC = () => {
             </div>
             <p className="text-xs text-slate-500 max-w-md mx-auto pt-2 border-t border-sy-border/50">
               This stage is scheduled for implementation in subsequent Decision Replay steps.
-              Return to Stage 1 to monitor active workshop telemetry.
+              Return to Stage 1 to view the Workshop Control Tower.
             </p>
             <div className="pt-2">
               <button
