@@ -83,6 +83,11 @@ def test_api_predict_readiness_success(client, canonical_snapshot):
     assert data["summary_counts"]["BLOCKED"] == 1
     assert data["summary_counts"].get("UNKNOWN", 0) == 0
 
+    # Verify contract uses 'calibration' serialization alias and does not expose 'calibration_status'
+    for ro_id, assessment in assessments.items():
+        assert "calibration" in assessment, f"Expected 'calibration' in {ro_id} assessment"
+        assert "calibration_status" not in assessment, f"Did not expect 'calibration_status' in {ro_id} assessment"
+
     # Verify RO-104 details are preserved
     ro_104 = assessments["RO-104"]
     assert ro_104["has_recovery_alternative"] is True
