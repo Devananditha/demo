@@ -197,7 +197,7 @@ export const SYNTHETIC_DISRUPTION_SCENARIO: SyntheticDisruptionScenario = {
       usableReadyTime: '4:30 PM',
       freightSurchargeUsd: 0.0,
       status: 'Delayed (+180m delay from initial schedule)',
-      impactSummary: 'Delivery at 4:30 PM (Tick 198) leaves only 30 min before standard shift close (Tick 204). 120-min reassembly pushes completion to 6:30 PM (Tick 222), missing 4:00 PM customer promise by 150 minutes and requiring overtime.',
+      impactSummary: 'Baseline usable-ready tick is 198 (4:30 PM) with $0 incremental freight. With 120 minutes of remaining task duration (TASK-104-02), parts arriving at tick 198 provide insufficient standard shift time before customer promise tick 192 (4:00 PM) and shift end tick 204 (5:00 PM).',
     },
     alternative: {
       supplierId: 'S1_HOTSHOT',
@@ -208,8 +208,8 @@ export const SYNTHETIC_DISRUPTION_SCENARIO: SyntheticDisruptionScenario = {
       usableReadyTick: 165,
       usableReadyTime: '1:45 PM',
       freightSurchargeUsd: 37.0,
-      status: 'Admissible recovery option (30 min from disruption detection)',
-      impactSummary: 'Delivery at 1:45 PM (Tick 165) enables reassembly to resume immediately, completing by 3:45 PM (Tick 189) ahead of 4:00 PM promise and freeing BAY-01 before shift end.',
+      status: 'Alternative supplier offer (quoted ETA 1:35 PM, usable 1:45 PM)',
+      impactSummary: 'Hotshot S1 usable-ready tick is 165 (1:45 PM) with a $37 freight surcharge. A 1:45 PM delivery provides 135 minutes before customer promise tick 192 (4:00 PM) for the remaining 120-minute task duration, presenting a feasible window compared to baseline.',
     },
   },
   downstreamImpact: {
@@ -223,7 +223,7 @@ export const SYNTHETIC_DISRUPTION_SCENARIO: SyntheticDisruptionScenario = {
     estimatedDurationMinutes: 120,
     estimatedDurationTicks: 24,
     priorityWeight: 3,
-    dependencyNote: 'BAY-01 is the shop’s sole HEAVY_DIAGNOSTIC_LIFT (12,000 lbs). While RO-104 is immobilized on BAY-01, RO-106 cannot be assigned despite having all parts ready (+75 min slack).',
+    dependencyNote: 'BAY-01 is the shop’s sole HEAVY_DIAGNOSTIC_LIFT (12,000 lbs). RO-106 requires no parts, is classified READY by Predict Layer 1 with +75 minutes evaluation-window slack, but remains held in queue solely because it requires this heavy diagnostic lift.',
   },
   timelineMilestones: [
     {
@@ -231,15 +231,15 @@ export const SYNTHETIC_DISRUPTION_SCENARIO: SyntheticDisruptionScenario = {
       time: '1:15 PM',
       label: 'Disruption Event Detected',
       type: 'DISRUPTION',
-      description: 'Primary supplier reports 180-minute inbound delay on RO-104 shift solenoid valve. RO-104 stalled on BAY-01 with oil pan off.',
+      description: 'Primary supplier reports 180-minute inbound delay on RO-104 shift solenoid valve. RO-104 remains immobilized on BAY-01 while its stalled repair task awaits the required part.',
       badgeColor: 'rose',
     },
     {
       tick: 165,
       time: '1:45 PM',
-      label: 'Hotshot S1 Parts Usable (Recovery Alternative)',
+      label: 'Hotshot S1 Parts Usable (Alternative Supplier Offer)',
       type: 'EXPEDITED_OPTION',
-      description: 'Dedicated courier delivery can arrive in 30 min with 10-min inspection ($37 surcharge), resuming reassembly at 1:45 PM.',
+      description: 'Regional Hotshot Courier delivery quote: usable-ready at tick 165 (1:45 PM) with 10-min receiving inspection and $37 freight surcharge.',
       badgeColor: 'emerald',
     },
     {
@@ -247,7 +247,7 @@ export const SYNTHETIC_DISRUPTION_SCENARIO: SyntheticDisruptionScenario = {
       time: '4:00 PM',
       label: 'RO-104 Customer Promise Deadline',
       type: 'PROMISE_TIME',
-      description: 'Customer promise deadline for RO-104. Missed under baseline delay; met under Hotshot S1 recovery.',
+      description: 'Customer promise tick 192 (4:00 PM) for RO-104. Baseline parts arrival at tick 198 falls after this deadline.',
       badgeColor: 'amber',
     },
     {
@@ -255,7 +255,7 @@ export const SYNTHETIC_DISRUPTION_SCENARIO: SyntheticDisruptionScenario = {
       time: '4:30 PM',
       label: 'Baseline Delivery Usable & RO-106 Promise',
       type: 'BASELINE_ETA',
-      description: 'Delayed ground shuttle parts ready for RO-104. Concurrently, RO-106 customer promise time is reached while still in holding.',
+      description: 'Delayed ground shuttle parts ready for RO-104 at tick 198 (4:30 PM). Concurrently, RO-106 customer promise tick 198 occurs while still in holding.',
       badgeColor: 'orange',
     },
     {
@@ -263,7 +263,7 @@ export const SYNTHETIC_DISRUPTION_SCENARIO: SyntheticDisruptionScenario = {
       time: '5:00 PM',
       label: 'Standard Shift End',
       type: 'SHIFT_END',
-      description: 'End of regular operating hours. Under baseline delay, RO-104 reassembly pushes deep into authorized overtime.',
+      description: 'End of regular operating hours (tick 204). Baseline parts arrival leaves only 30 minutes before standard shift end.',
       badgeColor: 'slate',
     },
     {

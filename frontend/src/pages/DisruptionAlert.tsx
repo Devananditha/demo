@@ -7,7 +7,6 @@ import {
   Warehouse,
   ShieldAlert,
   CheckCircle2,
-  XCircle,
   AlertCircle,
   Activity,
   Lock,
@@ -237,9 +236,9 @@ export const DisruptionAlert: React.FC<DisruptionAlertProps> = ({ onSelectStage 
               </div>
 
               <div className="space-y-2 text-xs">
-                <div className="flex items-center space-x-1.5 text-rose-400 font-medium">
-                  <XCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>Customer Promise: Missed by ~150 minutes</span>
+                <div className="flex items-center space-x-1.5 text-amber-400 font-medium">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>Promise Comparison: Usable parts (4:30 PM) arrive after promise tick 192 (4:00 PM)</span>
                 </div>
                 <p className="text-[11px] text-slate-300 leading-relaxed bg-[#0a0d14] p-3 rounded border border-[#1b2234]">
                   {baseline.impactSummary}
@@ -248,8 +247,8 @@ export const DisruptionAlert: React.FC<DisruptionAlertProps> = ({ onSelectStage 
             </div>
 
             <div className="pt-3 border-t border-[#1e2638] flex items-center justify-between text-[11px]">
-              <span className="text-slate-500">Lift Stalled:</span>
-              <span className="text-rose-400 font-mono font-semibold">BAY-01 locked until ~6:30 PM (Tick 222)</span>
+              <span className="text-slate-500">Lift Status:</span>
+              <span className="text-amber-400 font-mono font-semibold">BAY-01 remains immobilized awaiting part arrival</span>
             </div>
           </div>
 
@@ -259,7 +258,7 @@ export const DisruptionAlert: React.FC<DisruptionAlertProps> = ({ onSelectStage 
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-emerald-950/80 text-emerald-300 border border-emerald-800">
-                    Option B — Admissible Expedited Recovery
+                    Option B — Alternative Supplier Offer
                   </span>
                   <h4 className="text-sm font-bold text-white mt-1.5">{alternative.supplierName}</h4>
                   <div className="text-[11px] text-slate-400 font-mono">Supplier ID: {alternative.supplierId}</div>
@@ -291,7 +290,7 @@ export const DisruptionAlert: React.FC<DisruptionAlertProps> = ({ onSelectStage 
               <div className="space-y-2 text-xs">
                 <div className="flex items-center space-x-1.5 text-emerald-400 font-medium">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  <span>Customer Promise: Met on-time (~3:45 PM finish)</span>
+                  <span>Feasibility Window: Usable parts (1:45 PM) arrive 135 min before promise (4:00 PM)</span>
                 </div>
                 <p className="text-[11px] text-slate-300 leading-relaxed bg-[#0a0d14] p-3 rounded border border-[#1b2234]">
                   {alternative.impactSummary}
@@ -300,20 +299,22 @@ export const DisruptionAlert: React.FC<DisruptionAlertProps> = ({ onSelectStage 
             </div>
 
             <div className="pt-3 border-t border-[#1e2638] flex items-center justify-between text-[11px]">
-              <span className="text-slate-500">Lift Freed:</span>
-              <span className="text-emerald-400 font-mono font-semibold">BAY-01 available at 3:45 PM (Tick 189)</span>
+              <span className="text-slate-500">Task Scope:</span>
+              <span className="text-emerald-400 font-mono font-semibold">120 min remaining task duration vs 135 min window</span>
             </div>
           </div>
         </div>
 
-        <div className="p-3 bg-[#0d101a] border border-[#1b2234] rounded-lg text-xs text-slate-400 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+        <div className="p-3 bg-[#0d101a] border border-[#1b2234] rounded-lg text-xs text-slate-400 space-y-1">
+          <div className="flex items-center space-x-2 text-cyan-300 font-semibold text-[11px]">
             <Zap className="w-4 h-4 text-cyan-400 shrink-0" />
-            <span>
-              Synthetic comparison for decision replay. Economic net recovery ($238 net gain) and branch-and-bound verification
-              will be explored in Stage 5. No purchase order has been executed.
-            </span>
+            <span>Advisory Scenario Scope & Stage 4 Boundaries</span>
           </div>
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            This screen displays verified supplier offer data and timing differences. Stage 4 does not perform or claim:
+            (1) Branch-and-bound sourcing search, (2) CP-SAT schedule generation, (3) L4 independent constraint verification,
+            or (4) Service manager approval. These optimization and validation layers are demonstrated in subsequent stages.
+          </p>
         </div>
       </div>
 
@@ -332,8 +333,9 @@ export const DisruptionAlert: React.FC<DisruptionAlertProps> = ({ onSelectStage 
             Bay Dependency Cascade: Why RO-106 is Blocked from Bay Entry
           </h3>
           <p className="text-xs text-slate-400 max-w-3xl leading-relaxed mt-1">
-            Understanding the physical constraint propagation: even though RO-106 has all parts in stock and is classified
-            READY by Predict Layer 1 (+75 min slack), it cannot start because the shop’s only heavy diagnostic lift is immobilized.
+            Understanding the physical constraint propagation: RO-106 requires no parts and is classified READY by Predict
+            Layer 1 with +75 minutes evaluation-window slack, but cannot commence diagnosis because the shop’s only heavy
+            diagnostic lift is occupied by an immobilized vehicle.
           </p>
         </div>
 
@@ -349,8 +351,8 @@ export const DisruptionAlert: React.FC<DisruptionAlertProps> = ({ onSelectStage 
             </div>
             <div className="text-xs font-bold text-white">RO-104 Immobilized on Lift</div>
             <div className="text-[11px] text-slate-300 leading-relaxed">
-              Transmission oil pan removed. Fluid drained. Cannot be rolled or relocated. Occupies BAY-01 indefinitely
-              under baseline delivery delay.
+              Transmission oil pan removed. Fluid drained. Cannot be rolled or relocated. Remains immobilized on BAY-01
+              while its stalled repair task awaits the required replacement part.
             </div>
             <div className="text-[10px] font-mono text-rose-300 pt-1 border-t border-[#1b2234]">
               Location: BAY-01 &bull; Status: STALLED
@@ -401,8 +403,9 @@ export const DisruptionAlert: React.FC<DisruptionAlertProps> = ({ onSelectStage 
             <span>Classification Fidelity Note</span>
           </div>
           <p className="text-[11px] text-slate-400 leading-relaxed">
-            {downstream.dependencyNote} RO-106 is <span className="text-emerald-400 font-semibold">NOT blocked by parts lead times</span> (all parts are ready).
-            Its vulnerability arises entirely from physical bay exclusivity and RO-104’s prolonged lift occupation.
+            {downstream.dependencyNote} Predict readiness is distinct from physical bay access: RO-106 requires no parts and holds{' '}
+            <span className="text-emerald-400 font-semibold">+75 minutes evaluation-window slack</span>, but cannot enter service
+            while BAY-01 is occupied by immobilized RO-104.
           </p>
         </div>
       </div>
@@ -420,13 +423,13 @@ export const DisruptionAlert: React.FC<DisruptionAlertProps> = ({ onSelectStage 
             </p>
           </div>
           <span className="text-[10px] font-mono text-slate-400 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
-            Current Tick: 159 (1:15 PM)
+            Scenario Reference Tick: 159 (1:15 PM)
           </span>
         </div>
 
         <div className="space-y-3 pt-2">
           {scenario.timelineMilestones.map((milestone, idx) => {
-            const isCurrent = milestone.tick === 159;
+            const isReferenceTick = milestone.tick === 159;
             const badgeClasses = {
               rose: 'bg-rose-950/80 text-rose-300 border-rose-800',
               emerald: 'bg-emerald-950/80 text-emerald-300 border-emerald-800',
@@ -440,7 +443,7 @@ export const DisruptionAlert: React.FC<DisruptionAlertProps> = ({ onSelectStage 
               <div
                 key={idx}
                 className={`p-3.5 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
-                  isCurrent
+                  isReferenceTick
                     ? 'bg-rose-950/20 border-rose-800/80'
                     : 'bg-[#0d101a] border-[#1b2234] hover:border-slate-700'
                 }`}
@@ -456,9 +459,9 @@ export const DisruptionAlert: React.FC<DisruptionAlertProps> = ({ onSelectStage 
                       <span className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase border ${badgeClasses}`}>
                         {milestone.label}
                       </span>
-                      {isCurrent && (
-                        <span className="px-1.5 py-0.2 rounded text-[9px] font-mono uppercase bg-rose-500 text-slate-950 font-bold">
-                          Now
+                      {isReferenceTick && (
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-mono uppercase bg-cyan-950 text-cyan-300 border border-cyan-800 font-bold">
+                          Snapshot Reference
                         </span>
                       )}
                     </div>
