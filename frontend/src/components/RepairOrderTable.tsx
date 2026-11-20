@@ -1,6 +1,6 @@
 import React from 'react';
 import { CheckCircle2, AlertTriangle, XCircle, HelpCircle } from 'lucide-react';
-import { MOCK_REPAIR_ORDERS } from '../data/mockData';
+import { MOCK_REPAIR_ORDERS, SHARED_SNAPSHOT_TIME } from '../data/mockData';
 import { ReadinessStatus, RepairOrder } from '../types';
 
 const getStatusBadge = (status: ReadinessStatus) => {
@@ -47,13 +47,16 @@ export const RepairOrderTable: React.FC = () => {
       <div className="px-5 py-4 border-b border-[#1e2638] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-[#0d111a]/60">
         <div>
           <h2 className="text-base font-semibold text-white tracking-tight flex items-center gap-2">
-            <span>Active Workshop Repair Orders</span>
+            <span>Workshop Repair Orders</span>
             <span className="text-xs font-mono font-medium px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-              {MOCK_REPAIR_ORDERS.length} Active
+              {MOCK_REPAIR_ORDERS.length} Fixture Records
+            </span>
+            <span className="text-xs font-mono text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/40">
+              Snapshot: {SHARED_SNAPSHOT_TIME}
             </span>
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Real-time shop floor status across lifting bays, technician allocations, and promised customer deliveries.
+            Static benchmark snapshot across lifting bays, vehicle physical states, and promised customer deliveries from canonical fixture (s_math_01).
           </p>
         </div>
       </div>
@@ -65,7 +68,7 @@ export const RepairOrderTable: React.FC = () => {
               <th className="py-3 px-4 font-semibold">RO ID</th>
               <th className="py-3 px-4 font-semibold">Vehicle & Customer</th>
               <th className="py-3 px-4 font-semibold">Customer Complaint</th>
-              <th className="py-3 px-4 font-semibold">Bay Assignment</th>
+              <th className="py-3 px-4 font-semibold">Bay & Physical State</th>
               <th className="py-3 px-4 font-semibold">Technician</th>
               <th className="py-3 px-4 font-semibold">Promised Delivery</th>
               <th className="py-3 px-4 font-semibold text-center">Readiness Status</th>
@@ -112,16 +115,19 @@ export const RepairOrderTable: React.FC = () => {
                     </div>
                   </td>
 
-                  {/* Bay */}
+                  {/* Bay & Physical State */}
                   <td className="py-3.5 px-4 whitespace-nowrap">
                     <div className="text-xs font-mono font-medium text-slate-200">
                       {ro.bay}
+                    </div>
+                    <div className="text-[10px] font-mono text-slate-400">
+                      State: {ro.physicalState}
                     </div>
                   </td>
 
                   {/* Technician */}
                   <td className="py-3.5 px-4 whitespace-nowrap">
-                    <div className="text-xs font-medium text-slate-200">
+                    <div className="text-xs font-mono text-slate-400 italic">
                       {ro.technician}
                     </div>
                   </td>
@@ -144,9 +150,6 @@ export const RepairOrderTable: React.FC = () => {
                       {badge.icon}
                       <span>{badge.label}</span>
                     </span>
-                    <div className="text-[10px] text-slate-400 font-mono mt-0.5 text-center">
-                      {ro.freshness}
-                    </div>
                   </td>
                 </tr>
               );
@@ -176,7 +179,7 @@ export const RepairOrderTable: React.FC = () => {
           </span>
         </div>
         <div className="font-mono text-[11px] text-slate-400">
-          Showing 6 of 6 Active Repair Orders
+          Snapshot: {SHARED_SNAPSHOT_TIME} &bull; Canonical Dataset: s_math_01_fixture.json
         </div>
       </div>
     </div>

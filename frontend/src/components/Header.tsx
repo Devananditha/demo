@@ -35,7 +35,7 @@ export const Header: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Operational Telemetry Clock & Status */}
+        {/* Right: Simulation Snapshot Clock & Status */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 bg-[#121724] border border-[#1e2638] rounded-lg px-3 py-1.5 shadow-inner">
             <Clock className="w-4 h-4 text-cyan-400" />
@@ -56,7 +56,7 @@ export const Header: React.FC = () => {
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
             </span>
             <span className="text-xs font-mono text-emerald-400 font-medium">
-              SYSTEM LIVE
+              SIMULATION ACTIVE
             </span>
           </div>
         </div>

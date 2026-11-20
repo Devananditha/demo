@@ -23,7 +23,7 @@ export const KpiCards: React.FC = () => {
         </div>
         <div className="mt-2 text-[11px] text-slate-400 flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
-          <span>100% active operational tracking</span>
+          <span>Canonical fixture snapshot</span>
         </div>
       </div>
 

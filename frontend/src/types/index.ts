@@ -6,12 +6,12 @@ export interface RepairOrder {
   customerName: string;
   customerComplaint: string;
   bay: string;
+  physicalState: string;
   technician: string;
   promisedDelivery: string;
   promiseTick: number;
   readinessStatus: ReadinessStatus;
   readinessDetails: string;
-  freshness: string;
   laborGrossUsd: number;
   priorityWeight: number;
 }
