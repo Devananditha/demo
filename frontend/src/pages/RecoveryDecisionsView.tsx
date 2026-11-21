@@ -22,6 +22,7 @@ export const RecoveryDecisionsView: React.FC = () => {
     setActiveSection,
     selectedAlternative,
     setSelectedPlanId,
+    activeDisruptionEventId,
   } = useAppState();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,10 +31,14 @@ export const RecoveryDecisionsView: React.FC = () => {
   const { baseline, alternative } = scenario.supplierComparison;
 
   const handleRunRecovery = async () => {
+    if (!activeDisruptionEventId) {
+      setError('No disruption event has been ingested yet. Please simulate or ingest an event on the Disruptions screen first.');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const report = await fetchStallBreakerRecovery();
+      const report = await fetchStallBreakerRecovery(activeDisruptionEventId);
       setRecoveryReport(report);
       setHasRunRecovery(true);
     } catch (err: unknown) {
@@ -59,6 +64,14 @@ export const RecoveryDecisionsView: React.FC = () => {
               Customer: <strong className="text-stone-800">Robert Thorne</strong> &bull; Vehicle: <strong className="text-stone-800">2020 CrossTour AWD</strong> &bull; Work: Shift solenoid valve replacement (120 min duration).
               Vehicle is currently immobilized on BAY-01 awaiting replacement parts.
             </p>
+            {activeDisruptionEventId && (
+              <div className="mt-2 text-xs font-mono text-stone-600 flex items-center gap-2">
+                <span className="text-stone-500 font-sans">Active Disruption Event:</span>
+                <span className="px-2 py-0.5 rounded bg-[#f5f1e8] text-stone-900 border border-[#ded7c8] font-bold">
+                  {activeDisruptionEventId}
+                </span>
+              </div>
+            )}
           </div>
 
           {hasRunRecovery && (
@@ -183,8 +196,12 @@ export const RecoveryDecisionsView: React.FC = () => {
 
           <button
             onClick={handleRunRecovery}
-            disabled={loading}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-md text-xs font-medium shadow-xs transition-colors shrink-0"
+            disabled={loading || !activeDisruptionEventId}
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-xs font-medium shadow-xs transition-colors shrink-0 ${
+              !activeDisruptionEventId
+                ? 'bg-[#f0ebe0] text-stone-400 border border-[#ded7c8] cursor-not-allowed shadow-none'
+                : 'bg-stone-900 hover:bg-stone-800 text-white'
+            }`}
           >
             {loading ? (
               <>
@@ -199,6 +216,24 @@ export const RecoveryDecisionsView: React.FC = () => {
             )}
           </button>
         </div>
+
+        {!activeDisruptionEventId && (
+          <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-amber-900">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                <strong>No Active Disruption Event:</strong> Sourcing recovery optimization requires an active disruption event. Ingest or simulate an event on the Disruptions screen before running recovery.
+              </span>
+            </div>
+            <button
+              onClick={() => setActiveSection(2)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded-md font-medium shadow-xs transition-colors shrink-0 self-start sm:self-auto"
+            >
+              <span>Go to Disruptions</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {error && (
           <div className="p-3 bg-rose-50 border border-rose-200 rounded-md text-rose-800 text-xs">{error}</div>

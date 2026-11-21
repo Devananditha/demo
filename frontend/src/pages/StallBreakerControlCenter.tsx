@@ -124,7 +124,8 @@ export const StallBreakerControlCenter: React.FC<StallBreakerControlCenterProps>
     setActionLoading(true);
     setError(null);
     try {
-      const report = await fetchStallBreakerRecovery();
+      const eventIdToRecover = activeAnalysis?.event_id || events[events.length - 1]?.event_id || 'EVT-CANONICAL-INIT';
+      const report = await fetchStallBreakerRecovery(eventIdToRecover);
       setRecoveryReport(report);
     } catch (err: unknown) {
       if (err instanceof Error) {

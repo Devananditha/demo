@@ -14,6 +14,7 @@ export interface AppState {
   readinessReport: DealershipReadinessReport | null;
   initialSchedule: ScheduleResult | null;
   initialSnapshotHash: string | null;
+  activeDisruptionEventId: string | null;
   recoveryReport: StallBreakerRecoveryReport | null;
   selectedPlanId: string | null;
   setSelectedPlanId: (id: string | null) => void;
@@ -25,6 +26,7 @@ export interface AppState {
   setWorkshopState: (state: DealershipStateResponse | null) => void;
   setReadinessReport: (report: DealershipReadinessReport | null) => void;
   setInitialSchedule: (schedule: ScheduleResult | null, snapshotHash?: string | null) => void;
+  setActiveDisruptionEventId: (id: string | null) => void;
   setRecoveryReport: (report: StallBreakerRecoveryReport | null) => void;
   setVerificationResult: (result: any | null) => void;
   setApprovalResult: (result: CommitResult | null) => void;
@@ -40,6 +42,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [readinessReport, setReadinessReport] = useState<DealershipReadinessReport | null>(null);
   const [initialSchedule, setInitialScheduleState] = useState<ScheduleResult | null>(null);
   const [initialSnapshotHash, setInitialSnapshotHash] = useState<string | null>(null);
+  const [activeDisruptionEventId, setActiveDisruptionEventId] = useState<string | null>(null);
   const [recoveryReport, setRecoveryReport] = useState<StallBreakerRecoveryReport | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [verificationResult, setVerificationResult] = useState<any | null>(null);
@@ -82,6 +85,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         readinessReport,
         initialSchedule,
         initialSnapshotHash,
+        activeDisruptionEventId,
         recoveryReport,
         selectedPlanId,
         setSelectedPlanId,
@@ -93,6 +97,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setWorkshopState,
         setReadinessReport,
         setInitialSchedule,
+        setActiveDisruptionEventId,
         setRecoveryReport: handleSetRecoveryReport,
         setVerificationResult,
         setApprovalResult,

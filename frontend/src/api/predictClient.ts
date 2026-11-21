@@ -174,13 +174,16 @@ export async function fetchStallBreakerDisruptionAnalysis(eventId: string): Prom
   return res.json();
 }
 
-export async function fetchStallBreakerRecovery(eventId?: string): Promise<StallBreakerRecoveryReport> {
+export async function fetchStallBreakerRecovery(
+  eventId: string,
+  allowEmergencyOvertime: boolean = true
+): Promise<StallBreakerRecoveryReport> {
   const res = await fetch(`${API_BASE_URL}/api/v1/stallbreaker/recovery-recommendations`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       event_id: eventId,
-      allow_emergency_overtime: true,
+      allow_emergency_overtime: allowEmergencyOvertime,
     }),
   });
   if (!res.ok) {
