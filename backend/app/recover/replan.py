@@ -27,6 +27,7 @@ from app.optimise import (
     SupplementalAuditOracle,
     T1BitsetScheduler,
     WorkshopEvidenceBundle,
+    compute_net_economic_objective,
 )
 from app.recover.models import (
     DependencyBlastRadius,
@@ -159,7 +160,15 @@ class RecoveryReplanningPipeline:
             gross_contrib = cand_res.metrics.gross_contribution_usd
             sourcing_cost = candidate.freight_surcharge_usd
             lateness_penalty = cand_res.metrics.lateness_penalty_usd
-            net_obj = (gross_contrib - lateness_penalty - sourcing_cost).quantize(Decimal("0.01"))
+            bay_blocked_penalty = cand_res.metrics.bay_blocked_penalty_usd or Decimal("0.00")
+            churn_penalty = cand_res.metrics.schedule_churn_penalty_usd or Decimal("0.00")
+            net_obj = compute_net_economic_objective(
+                gross_contribution_usd=gross_contrib,
+                lateness_penalty_usd=lateness_penalty,
+                sourcing_cost_usd=sourcing_cost,
+                bay_blocked_penalty_usd=bay_blocked_penalty,
+                schedule_churn_penalty_usd=churn_penalty,
+            )
             net_delta = (net_obj - base_obj).quantize(Decimal("0.01"))
 
             weighted_lateness = cand_res.metrics.weighted_lateness_ticks

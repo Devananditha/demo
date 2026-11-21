@@ -46,9 +46,11 @@ from app.stallbreaker import (
     StallBreakerDisruptionAnalysis,
     StallBreakerRecoveryReport,
     StoredEvent,
+    is_production_mode,
     stallbreaker_approval_gateway,
     stallbreaker_engine,
     stallbreaker_event_store,
+    validate_event_timestamp,
     verify_hmac_sha256,
 )
 
@@ -132,8 +134,8 @@ class RecoveryReplanRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     rooftop_id: str = Field(..., min_length=1, description="Target dealership rooftop identifier")
     snapshot_hash: str = Field(..., min_length=1, description="Expected snapshot SHA-256 hash")
-    disrupted_ro_id: Optional[str] = Field(default="RO-104", description="Anchor disrupted repair order")
-    disrupted_part_req_id: Optional[str] = Field(default="PART-REQ-104-SOLENOID", description="Affected part requirement")
+    disrupted_ro_id: Optional[str] = Field(default=None, description="Anchor disrupted repair order")
+    disrupted_part_req_id: Optional[str] = Field(default=None, description="Affected part requirement")
     trigger_tick: Optional[int] = Field(default=159, ge=0, le=288, description="Evaluation/disruption tick")
     primary_supplier_delay_minutes: Optional[int] = Field(default=180, ge=0, description="Reported supplier delay in minutes")
     allow_emergency_overtime: bool = Field(default=True, description="Authorize overtime to complete reassembly")
@@ -187,8 +189,8 @@ def get_health() -> HealthResponse:
 
 @app.get("/api/v1/state", response_model=DealershipStateResponse, status_code=status.HTTP_200_OK)
 def get_canonical_state() -> DealershipStateResponse:
-    """Loads and returns canonical workshop state from S-MATH-01 fixture."""
-    snapshot = load_fixture_data()
+    """Loads and returns canonical workshop state from S-MATH-01 fixture or live mutated state."""
+    snapshot = get_live_snapshot()
 
     ro_items = [
         RepairOrderStateItem(
@@ -218,7 +220,7 @@ def get_canonical_state() -> DealershipStateResponse:
 )
 def predict_readiness(request: ReadinessRequest) -> DealershipReadinessReport:
     """Calculates Layer 1 Empirical-Bayes readiness classifications for all active ROs."""
-    snapshot = load_fixture_data()
+    snapshot = get_live_snapshot()
 
     if request.rooftop_id != snapshot.rooftop.rooftop_id:
         raise HTTPException(
@@ -249,7 +251,7 @@ def predict_readiness(request: ReadinessRequest) -> DealershipReadinessReport:
 )
 def optimise_schedule(request: OptimiseRequest) -> ScheduleResult:
     """Solves the discrete workshop scheduling problem using OR-Tools CP-SAT with dual verification."""
-    snapshot = load_fixture_data()
+    snapshot = get_live_snapshot()
 
     if request.rooftop_id != snapshot.rooftop.rooftop_id:
         raise HTTPException(
@@ -286,7 +288,7 @@ def optimise_schedule(request: OptimiseRequest) -> ScheduleResult:
 )
 def calculate_shadow_price(request: ShadowPriceRequest) -> BayHourShadowPrice:
     """Estimates the marginal economic value nu_b(t) of bay capacity via discrete sensitivity re-solves."""
-    snapshot = load_fixture_data()
+    snapshot = get_live_snapshot()
 
     if request.rooftop_id != snapshot.rooftop.rooftop_id:
         raise HTTPException(
@@ -327,7 +329,7 @@ def calculate_shadow_price(request: ShadowPriceRequest) -> BayHourShadowPrice:
 )
 def recover_replan(request: RecoveryReplanRequest) -> RecoveryRecommendationReport:
     """Executes full-shop recovery replanning, Pareto sourcing evaluation, and Decision Replay delta calculation."""
-    snapshot = load_fixture_data()
+    snapshot = get_live_snapshot()
 
     if request.rooftop_id != snapshot.rooftop.rooftop_id:
         raise HTTPException(
@@ -341,14 +343,31 @@ def recover_replan(request: RecoveryReplanRequest) -> RecoveryRecommendationRepo
             detail=f"Stale snapshot hash: expected '{snapshot.snapshot_hash}', received '{request.snapshot_hash}'.",
         )
 
+    target_ro_id = request.disrupted_ro_id
+    if not target_ro_id:
+        stalled_ro = next((ro for ro in snapshot.repair_orders if ro.status.value in ("STALLED", "BLOCKED")), None)
+        target_ro_id = stalled_ro.ro_id if stalled_ro else (snapshot.repair_orders[0].ro_id if snapshot.repair_orders else "RO-104")
+
+    target_part_id = request.disrupted_part_req_id
+    if not target_part_id:
+        part = next((p for p in snapshot.part_requirements if p.ro_id == target_ro_id), None)
+        target_part_id = part.part_req_id if part else (snapshot.part_requirements[0].part_req_id if snapshot.part_requirements else "PART-REQ-104-SOLENOID")
+
+    target_part = next((p for p in snapshot.part_requirements if p.part_req_id == target_part_id), None)
+    delayed_tick = 198
+    if target_part and target_part.usable_ready_tick:
+        delayed_tick = target_part.usable_ready_tick
+
+    delay_mins = request.primary_supplier_delay_minutes if request.primary_supplier_delay_minutes is not None else 180
+
     disruption = DisruptionEvent(
-        disrupted_ro_id=request.disrupted_ro_id or "RO-104",
-        disrupted_part_req_id=request.disrupted_part_req_id or "PART-REQ-104-SOLENOID",
+        disrupted_ro_id=target_ro_id,
+        disrupted_part_req_id=target_part_id,
         disruption_type=DisruptionType.PARTS_DELAY,
         trigger_tick=request.trigger_tick or REFERENCE_CURRENT_TICK,
-        primary_supplier_delay_minutes=request.primary_supplier_delay_minutes or 180,
-        delayed_ready_tick=198,
-        description=f"Supplier primary ground transit delayed {request.primary_supplier_delay_minutes} min to tick 198",
+        primary_supplier_delay_minutes=delay_mins,
+        delayed_ready_tick=delayed_tick,
+        description=f"Supplier primary ground transit delayed {delay_mins} min to tick {delayed_tick}",
         event_timestamp_utc=REFERENCE_EVAL_TIME_UTC,
     )
 
@@ -375,7 +394,7 @@ def recover_replan(request: RecoveryReplanRequest) -> RecoveryRecommendationRepo
 )
 def verify_candidate_schedule(request: VerificationRequest) -> VerificationResult:
     """Independently audits a candidate schedule plan using the O(N log N) Sweep-Line Oracle."""
-    snapshot = load_fixture_data()
+    snapshot = get_live_snapshot()
 
     if request.rooftop_id != snapshot.rooftop.rooftop_id:
         raise HTTPException(
@@ -405,7 +424,7 @@ def list_replay_records() -> List[DecisionReplayRecord]:
 )
 def commit_plan(request: CommitRequest) -> CommitResult:
     """Executes OCC-checked manager approval commitment with transactional outbox generation."""
-    snapshot = load_fixture_data()
+    snapshot = get_live_snapshot()
 
     replan_report = recover_replan(
         RecoveryReplanRequest(
@@ -454,12 +473,31 @@ def ingest_stallbreaker_event(request: EventIngestRequest) -> EventIngestRespons
     """Ingests, validates, and applies domain events with HMAC verification and idempotency."""
     global _live_snapshot
 
-    # 1. Cryptographic HMAC-SHA256 signature verification (if provided)
+    if request.rooftop_id != _live_snapshot.rooftop.rooftop_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Rooftop '{request.rooftop_id}' not found.",
+        )
+
+    # 1. Cryptographic HMAC-SHA256 signature verification & timestamp freshness
+    if is_production_mode() and not request.signature:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="HMAC-SHA256 signature required in production mode.",
+        )
+
     if request.signature:
         if not verify_hmac_sha256(request.payload, request.signature):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid HMAC-SHA256 event signature.",
+            )
+
+    if request.occurred_at:
+        if not validate_event_timestamp(request.occurred_at):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Stale or future event timestamp: exceeds allowable clock skew window.",
             )
 
     # 2. Check Idempotency via Event Store

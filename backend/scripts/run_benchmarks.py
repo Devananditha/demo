@@ -2,6 +2,11 @@
 
 import json
 from pathlib import Path
+import sys
+
+# Ensure backend directory is in sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from app.benchmark.runner import benchmark_runner
 
 def main():

@@ -40,6 +40,24 @@ class DealershipStateMutator:
             Tuple[DealershipSnapshotSchema, bool, Optional[str]]:
                 (mutated_snapshot, requires_recovery, disruption_summary)
         """
+        # Check OCC expected snapshot hash
+        if event.expected_snapshot_hash and event.expected_snapshot_hash != snapshot.snapshot_hash:
+            raise ValueError(
+                f"Stale state OCC conflict: expected '{event.expected_snapshot_hash}', actual '{snapshot.snapshot_hash}'"
+            )
+
+        # Validate known event type
+        if event.event_type not in (
+            EventType.PARTS_ETA_CHANGED,
+            EventType.PART_UNAVAILABLE,
+            EventType.TECHNICIAN_UNAVAILABLE,
+            EventType.BAY_RESERVATION_CHANGED,
+            EventType.OPERATION_COMPLETED,
+            EventType.RO_LINE_READY,
+            EventType.RO_OPENED,
+        ):
+            raise ValueError(f"Unknown or unsupported event type: '{event.event_type}'")
+
         # Create a deep copy to preserve immutability of the input snapshot
         mutated = snapshot.model_copy(deep=True)
         requires_recovery = False
