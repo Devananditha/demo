@@ -156,3 +156,88 @@ export interface SyntheticDisruptionScenario {
   };
   timelineMilestones: DisruptionTimelineMilestone[];
 }
+
+export interface DecisionReplayDiff {
+  baseline_plan_id: string;
+  proposed_plan_id: string;
+  baseline_gross_contribution_usd: string;
+  proposed_gross_contribution_usd: string;
+  delta_gross_contribution_usd: string;
+  sourcing_freight_usd: string;
+  rescheduling_churn_cost_usd: string;
+  baseline_net_objective_usd: string;
+  proposed_net_objective_usd: string;
+  net_economic_delta_usd: string;
+  baseline_weighted_lateness_ticks: number;
+  proposed_weighted_lateness_ticks: number;
+  delta_weighted_lateness_ticks: number;
+  baseline_bay_utilization_pct: number;
+  proposed_bay_utilization_pct: number;
+  delta_bay_utilization_pct: number;
+  baseline_idle_minutes: number;
+  proposed_idle_minutes: number;
+  delta_idle_minutes: number;
+  baseline_constraint_violations: number;
+  proposed_constraint_violations: number;
+  is_verified: boolean;
+  is_fully_certified: boolean;
+}
+
+export interface DecisionConstraintEvaluation {
+  constraint: string;
+  description: string;
+  is_satisfied: boolean;
+  notes: string;
+}
+
+export interface DecisionRejectedAlternative {
+  option_id: string;
+  rejection_reason: string;
+}
+
+export interface DecisionExplainability {
+  recommendation_summary: string;
+  primary_driver: string;
+  constraints_considered: DecisionConstraintEvaluation[];
+  objective_breakdown: Record<string, string>;
+  alternatives_rejected: DecisionRejectedAlternative[];
+  unresolved_risks: string[];
+}
+
+export interface RecoveryAlternativeReport {
+  offer_id: string;
+  plan_id: string;
+  supplier_name: string;
+  part_number: string;
+  arrival_tick: number;
+  usable_ready_tick: number;
+  sourcing_cost_usd: string;
+  gross_contribution_usd: string;
+  lateness_penalty_usd: string;
+  net_objective_usd: string;
+  net_recovery_delta_usd: string;
+  weighted_lateness_ticks: number;
+  bay_blocked_hours: string;
+  is_verified: boolean;
+  is_fully_certified: boolean;
+  certification_status: string;
+  is_pareto_optimal: boolean;
+  is_recommended: boolean;
+  rationale?: string | null;
+}
+
+export interface RecoveryRecommendationResponse {
+  baseline_plan_id: string;
+  baseline_net_objective_usd: string;
+  baseline_weighted_lateness_ticks: number;
+  recommended_option_id: string | null;
+  recommended_plan_id: string | null;
+  recommendation_rationale: string;
+  alternatives: RecoveryAlternativeReport[];
+  pareto_frontier: RecoveryAlternativeReport[];
+  decision_replay?: DecisionReplayDiff | null;
+  explainability?: DecisionExplainability | null;
+  unresolved_risks: string[];
+  generated_at: string;
+  replan_duration_ms: number;
+}

@@ -518,6 +518,8 @@ class CPSATScheduler:
         # 8. Economic Objective Function Formulation
         gross_cents_per_tick = int(round(self.config.labor_contribution_per_hour_usd / Decimal("12") * Decimal("100")))
         late_cents_per_tick = int(round(self.config.lateness_penalty_per_minute_usd * Decimal("500")))
+        blocked_cents_per_tick = int(round(self.config.blocked_bay_penalty_per_minute_usd * Decimal("500")))
+        churn_cents_per_reassignment = int(round(self.config.churn_penalty_per_move_usd * Decimal("100")))
 
         objective_terms = []
         for t_id, t_info in task_vars.items():
@@ -529,6 +531,38 @@ class CPSATScheduler:
             ro = ros_by_id[ro_id]
             weight = ro.priority_weight
             objective_terms.append(-late_cents_per_tick * weight * lat_var)
+
+        # Bay Blocked Idle Opportunity Cost Formulation
+        blocked_penalty_terms = []
+        if blocked_cents_per_tick > 0:
+            for imm_ro_id in immobilized_ros:
+                imm_tasks = [t_info for t_info in task_vars.values() if t_info["ro"].ro_id == imm_ro_id]
+                if imm_tasks:
+                    phys_ev = ev.get_vehicle_physical_evidence(ros_by_id[imm_ro_id].vehicle_id, imm_ro_id)
+                    occ_start = phys_ev.occupancy_start_tick if (phys_ev and phys_ev.occupancy_start_tick is not None) else ev.current_tick
+                    for t_info in imm_tasks:
+                        # start - occ_start represents idle blocked ticks before repair commencement
+                        blocked_penalty_terms.append(blocked_cents_per_tick * (t_info["start"] - occ_start))
+
+        for term in blocked_penalty_terms:
+            objective_terms.append(-term)
+
+        # Schedule Churn / Disruption Penalty Formulation
+        churn_vars = []
+        if churn_cents_per_reassignment > 0:
+            for t_id, prog in ev.task_progress.items():
+                if t_id in task_vars:
+                    if prog.existing_tech_id:
+                        for (task_k, tech_k), var in tech_assignment_vars.items():
+                            if task_k == t_id and tech_k != prog.existing_tech_id:
+                                churn_vars.append(var)
+                    if prog.existing_bay_id:
+                        for (task_b, bay_b), var in bay_assignment_vars.items():
+                            if task_b == t_id and bay_b != prog.existing_bay_id:
+                                churn_vars.append(var)
+
+        for var in churn_vars:
+            objective_terms.append(-churn_cents_per_reassignment * var)
 
         model.Maximize(sum(objective_terms))
 
@@ -718,8 +752,22 @@ class CPSATScheduler:
             late_cents = weighted_lateness_ticks * late_cents_per_tick
             lateness_penalty = Decimal(str(late_cents)) / Decimal("100")
             bay_blocked_ticks = sum((occ.end_tick - occ.start_tick) for occ in vehicle_occupancies)
-            bay_blocked_penalty = Decimal("0.00")
-            net_obj = gross_contrib - lateness_penalty
+            bay_blocked_penalty = (Decimal(str(bay_blocked_ticks * blocked_cents_per_tick)) / Decimal("100")).quantize(Decimal("0.01"))
+
+            churn_score = sum(int(solver.Value(v)) for v in churn_vars) if churn_vars else None
+            churn_penalty = (Decimal(str(churn_score * churn_cents_per_reassignment)) / Decimal("100")).quantize(Decimal("0.01")) if churn_score is not None else None
+            churn_status = "AVAILABLE" if churn_score is not None else "NOT_APPLICABLE"
+
+            configured_terms = ["gross_contribution", "lateness_penalty"]
+            unconfigured_terms = ["sourcing_cost"]
+            if blocked_cents_per_tick > 0:
+                configured_terms.append("bay_blocked_penalty")
+            else:
+                unconfigured_terms.append("bay_blocked_penalty")
+            if churn_cents_per_reassignment > 0:
+                configured_terms.append("schedule_churn_penalty")
+            else:
+                unconfigured_terms.append("schedule_churn_penalty")
 
             metrics = ObjectiveMetrics(
                 gross_contribution_usd=gross_contrib.quantize(Decimal("0.01")),
@@ -727,14 +775,14 @@ class CPSATScheduler:
                 weighted_lateness_ticks=weighted_lateness_ticks,
                 lateness_penalty_usd=lateness_penalty.quantize(Decimal("0.01")),
                 bay_blocked_ticks=bay_blocked_ticks,
-                bay_blocked_penalty_usd=Decimal("0.00"),
-                schedule_churn_score=None,
-                schedule_churn_penalty_usd=None,
-                churn_status="NOT_APPLICABLE",
+                bay_blocked_penalty_usd=bay_blocked_penalty,
+                schedule_churn_score=churn_score,
+                schedule_churn_penalty_usd=churn_penalty,
+                churn_status=churn_status,
                 net_objective_usd=solver_obj_usd,
-                objective_completeness="PARTIAL_CONFIGURED",
-                configured_terms=["gross_contribution", "lateness_penalty"],
-                unconfigured_terms=["sourcing_cost", "bay_blocked_penalty", "schedule_churn_penalty"],
+                objective_completeness="FULL_OBJECTIVE" if len(unconfigured_terms) == 0 else "PARTIAL_CONFIGURED",
+                configured_terms=configured_terms,
+                unconfigured_terms=unconfigured_terms,
                 ro_completion_statuses=ro_completion_statuses,
                 uncompleted_ros_count=uncompleted_ros_count,
             )

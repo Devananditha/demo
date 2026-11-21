@@ -37,6 +37,7 @@ from app.recover.models import (
     SourcingCandidate,
 )
 from app.recover.search import SourcingSearchEngine
+from app.replay.engine import replay_engine
 from app.schemas.domain import (
     DealershipSnapshotSchema,
     PartRequirementSchema,
@@ -223,6 +224,31 @@ class RecoveryReplanningPipeline:
             snapshot=snapshot,
         )
 
+        # Decision Replay Delta and Explainability Synthesis
+        decision_replay_diff = None
+        explainability = None
+        if recommended_alt and recommended_alt.schedule_result:
+            decision_replay_diff = replay_engine.compute_diff(
+                baseline_res=base_res,
+                proposed_res=recommended_alt.schedule_result,
+                sourcing_cost=recommended_alt.sourcing_cost_usd,
+                snapshot=snapshot,
+            )
+            explainability = replay_engine.generate_explainability(
+                disruption=disruption_event,
+                recommended=recommended_alt,
+                all_alternatives=alternatives,
+                pruned_candidates=sourcing_result.pruned_candidates,
+                rejected_candidates=sourcing_result.rejected_candidates,
+                snapshot=snapshot,
+            )
+            replay_engine.record_decision(
+                rooftop_id=snapshot.rooftop.rooftop_id,
+                snapshot_hash=snapshot.snapshot_hash or "",
+                diff=decision_replay_diff,
+                explainability=explainability,
+            )
+
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
 
         return RecoveryRecommendationReport(
@@ -236,6 +262,8 @@ class RecoveryReplanningPipeline:
             recommendation_rationale=rationale,
             alternatives=alternatives,
             pareto_frontier=pareto_frontier,
+            decision_replay=decision_replay_diff,
+            explainability=explainability,
             unresolved_risks=unresolved_risks,
             generated_at=eval_time,
             replan_duration_ms=round(elapsed_ms, 3),

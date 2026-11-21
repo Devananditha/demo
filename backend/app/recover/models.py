@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Set
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.optimise.models import BayHourShadowPrice, ScheduleResult
+from app.replay.models import DecisionExplainability, DecisionReplayDiff
 from app.verifier.models import CandidateSchedulePlan, VerificationResult
 
 
@@ -154,6 +155,9 @@ class RecoveryRecommendationReport(BaseModel):
     alternatives: List[RecoveryAlternative] = Field(default_factory=list)
     pareto_frontier: List[RecoveryAlternative] = Field(default_factory=list)
     
+    decision_replay: Optional[DecisionReplayDiff] = Field(default=None, description="Detailed comparative Decision Replay deltas")
+    explainability: Optional[DecisionExplainability] = Field(default=None, description="Detailed explainability breakdown")
+
     unresolved_risks: List[str] = Field(default_factory=list)
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     replan_duration_ms: float = Field(default=0.0, ge=0.0)
