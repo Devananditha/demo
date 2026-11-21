@@ -55,10 +55,10 @@ export const STAGES: StageInfo[] = [
   },
   {
     id: 6,
-    name: 'Independent Verification Gate',
-    shortLabel: '6. L4 Verification',
-    status: 'upcoming',
-    description: 'Independent O(N log N) sweep-line oracle verification and Manager approval binding.',
+    name: 'Independent Verification Gate & Manager Approval',
+    shortLabel: '6. Verification & Approval',
+    status: 'active',
+    description: 'Independent O(N log N) sweep-line oracle verification and Manager approval binding workflow preview.',
   },
   {
     id: 7,
