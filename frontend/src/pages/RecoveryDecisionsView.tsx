@@ -36,27 +36,27 @@ export const RecoveryDecisionsView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-10">
-      {/* Context card */}
-      <div className="bg-[#111522] border border-purple-800/60 rounded-xl p-5 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="space-y-6 pb-8">
+      {/* Context Header Card */}
+      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
-              <span className="text-xs font-semibold text-purple-400 uppercase tracking-wider font-mono">
-                Economic Recovery Decisions
+              <span className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
+                Decision Support Workbench
               </span>
             </div>
-            <h2 className="text-lg font-bold text-white">RO-104 — 2020 CrossTour AWD Recovery Sourcing</h2>
-            <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
-              Customer: <strong className="text-white">Robert Thorne</strong> &bull; Work: Shift solenoid valve replacement (120 min remaining).
-              Vehicle is immobilized on BAY-01. Choose between ground freight baseline vs. expedited courier recovery.
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">RO-104 Sourcing Recovery & Trade-Off Analysis</h2>
+            <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
+              Customer: <strong className="text-slate-800">Robert Thorne</strong> &bull; Vehicle: <strong className="text-slate-800">2020 CrossTour AWD</strong> &bull; Work: Shift solenoid valve replacement (120 min duration).
+              Vehicle is currently immobilized on BAY-01 awaiting replacement parts.
             </p>
           </div>
 
           {hasRunRecovery && (
             <button
               onClick={() => setActiveSection(4)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-md transition-colors self-start sm:self-auto shrink-0"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium shadow-xs transition-colors self-start sm:self-auto shrink-0"
             >
               <span>Proceed to Verification Gate</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -65,117 +65,127 @@ export const RecoveryDecisionsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Supplier option cards */}
+      {/* Supplier Sourcing Comparison Cards */}
       <div>
-        <h3 className="text-sm font-bold text-white mb-3">Sourcing Alternatives Comparison</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-slate-900">Sourcing Alternatives Evaluation</h3>
+          <span className="text-xs text-slate-500">Evaluated against customer delivery promise (4:00 PM)</span>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Option A — S2 Ground (baseline, miss promise) */}
-          <div className="bg-[#121624] border border-[#1e2638] rounded-xl p-5 space-y-3">
-            <div className="flex items-center justify-between">
+          {/* Option A — Standard Ground Shuttle */}
+          <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-4 shadow-xs flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                    Option A &bull; Inactive Quote
+                  </span>
+                  <div className="text-base font-bold text-slate-900 mt-1.5">{baseline.supplierName}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-base font-mono font-bold text-slate-900">$0.00</div>
+                  <div className="text-[11px] text-slate-500">Freight surcharge</div>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-md p-3 space-y-2 text-xs">
+                <div className="flex justify-between text-slate-600">
+                  <span>Parts Usable Ready:</span>
+                  <span className="font-mono font-bold text-rose-700">{baseline.usableReadyTime}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Customer Delivery Promise:</span>
+                  <span className="font-mono font-medium text-slate-800">4:00 PM</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Available Shift Work Window:</span>
+                  <span className="font-mono font-bold text-rose-700">30 min (Need 120 min)</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2.5 p-3 bg-rose-50 border border-rose-200 rounded-md text-xs text-rose-800 leading-relaxed">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
               <div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-slate-800 text-slate-300 border border-slate-700">
-                  Option A — Standard Ground Shuttle
-                </span>
-                <div className="text-sm font-bold text-white mt-1.5">{baseline.supplierName}</div>
+                <strong className="font-semibold text-rose-900 block">Severe Delivery Breach:</strong>
+                Parts arrive 30 minutes after promise deadline. Repair extends past regular shift into unauthorized overtime, and BAY-01 remains stalled all afternoon.
               </div>
-              <div className="text-right">
-                <div className="text-base font-mono font-bold text-emerald-300">$0.00</div>
-                <div className="text-[10px] text-slate-500">Freight surcharge</div>
-              </div>
-            </div>
-
-            <div className="bg-[#0d101a] border border-[#1b2234] rounded-lg p-3 space-y-2 text-xs font-mono">
-              <div className="flex justify-between text-slate-400">
-                <span>Parts Usable Ready:</span>
-                <span className="text-orange-300 font-bold">{baseline.usableReadyTime}</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Customer Promise:</span>
-                <span className="text-slate-200">4:00 PM</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Work Window Before Shift End:</span>
-                <span className="text-rose-400 font-bold">30 min (Need 120 min)</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 p-2.5 bg-rose-950/30 border border-rose-900/50 rounded-lg text-xs text-rose-300 leading-relaxed">
-              <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
-              <span>
-                <strong>Severe Delivery Breach:</strong> Parts arrive 30 minutes after customer promise time. BAY-01 remains blocked all afternoon, starving RO-106.
-              </span>
             </div>
           </div>
 
-          {/* Option B — S1 Hotshot (alternative, feasible) */}
-          <div className="bg-[#121624] border-2 border-purple-500/60 rounded-xl p-5 space-y-3 shadow-lg relative">
-            <div className="flex items-center justify-between">
+          {/* Option B — Expedited Hotshot Courier */}
+          <div className="bg-white border-2 border-blue-600 rounded-lg p-5 space-y-4 shadow-xs flex flex-col justify-between relative">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+                    Option B &bull; Recommended Candidate
+                  </span>
+                  <div className="text-base font-bold text-slate-900 mt-1.5">{alternative.supplierName}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-base font-mono font-bold text-slate-900">+${alternative.freightSurchargeUsd.toFixed(2)}</div>
+                  <div className="text-[11px] text-slate-500">Expedited courier</div>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-md p-3 space-y-2 text-xs">
+                <div className="flex justify-between text-slate-600">
+                  <span>Parts Usable Ready:</span>
+                  <span className="font-mono font-bold text-emerald-700">{alternative.usableReadyTime}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Customer Delivery Promise:</span>
+                  <span className="font-mono font-medium text-slate-800">4:00 PM</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Available Shift Work Window:</span>
+                  <span className="font-mono font-bold text-emerald-700">135 min (Need 120 min)</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2.5 p-3 bg-emerald-50 border border-emerald-200 rounded-md text-xs text-emerald-800 leading-relaxed">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 mt-0.5" />
               <div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-purple-950 text-purple-300 border border-purple-800 font-bold">
-                  Option B — Dedicated Hotshot Courier
-                </span>
-                <div className="text-sm font-bold text-white mt-1.5">{alternative.supplierName}</div>
+                <strong className="font-semibold text-emerald-900 block">Promise Protected & Bay Unblocked:</strong>
+                Parts usable by 1:45 PM. Technician Elena finishes repair by 3:45 PM, beating customer promise and freeing BAY-01 for downstream vehicle RO-106.
               </div>
-              <div className="text-right">
-                <div className="text-base font-mono font-bold text-rose-300">+${alternative.freightSurchargeUsd.toFixed(2)}</div>
-                <div className="text-[10px] text-slate-500">Expedited freight</div>
-              </div>
-            </div>
-
-            <div className="bg-[#0d101a] border border-[#1b2234] rounded-lg p-3 space-y-2 text-xs font-mono">
-              <div className="flex justify-between text-slate-400">
-                <span>Parts Usable Ready:</span>
-                <span className="text-emerald-300 font-bold">{alternative.usableReadyTime}</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Customer Promise:</span>
-                <span className="text-slate-200">4:00 PM</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Work Window Available:</span>
-                <span className="text-emerald-400 font-bold">135 min (Need 120 min)</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 p-2.5 bg-emerald-950/30 border border-emerald-900/50 rounded-lg text-xs text-emerald-300 leading-relaxed">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-              <span>
-                <strong>Feasible & On-Time:</strong> Parts arrive at 1:45 PM. Technician Elena finishes repair by 3:45 PM, beating customer promise and freeing BAY-01 for RO-106.
-              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Run Optimizer */}
-      <div className="bg-[#111522] border-2 border-purple-500/40 rounded-xl p-5 shadow-2xl space-y-4">
+      {/* Economic Optimizer Trigger Section */}
+      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-purple-400" />
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-purple-400">
-                Workshop Economic Optimizer
+              <TrendingUp className="w-4 h-4 text-blue-700" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-blue-700">
+                Economic Optimization Engine
               </span>
             </div>
-            <h3 className="text-base font-bold text-white">Full-Shop Capacity Re-Solve</h3>
-            <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
-              Re-optimizes scheduling across all service bays, technicians, and repair commitments to compute the exact net contribution delta.
+            <h3 className="text-base font-bold text-slate-900">Run Full-Shop Capacity Re-Solve</h3>
+            <p className="text-xs text-slate-500 max-w-2xl leading-relaxed">
+              Simultaneously optimizes schedules across all bays, technicians, and work orders to calculate the exact net economic delta of adopting the expedited courier alternative.
             </p>
           </div>
 
           <button
             onClick={handleRunRecovery}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white border border-purple-400 rounded-lg text-xs font-mono font-bold uppercase tracking-wider shadow-lg transition-all shrink-0"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium shadow-xs transition-colors shrink-0"
           >
             {loading ? (
               <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
+                <RefreshCw className="w-4 h-4 animate-spin text-white" />
                 Computing Optimal Dispatch…
               </>
             ) : (
               <>
-                <Play className="w-4 h-4 fill-white text-white" />
+                <Play className="w-3.5 h-3.5 fill-white text-white" />
                 Run Economic Optimizer
               </>
             )}
@@ -183,29 +193,29 @@ export const RecoveryDecisionsView: React.FC = () => {
         </div>
 
         {error && (
-          <div className="p-3 bg-rose-950/40 border border-rose-800 rounded-lg text-rose-200 text-xs">{error}</div>
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-md text-rose-800 text-xs">{error}</div>
         )}
 
-        {/* Results — only shown after execution */}
+        {/* Results — Displayed Reactively After Optimizer Solve */}
         {hasRunRecovery && recoveryReport && (
-          <div className="space-y-4 pt-4 border-t border-[#1e2638] animate-fade-in">
-            {/* Recommended action */}
+          <div className="space-y-4 pt-4 border-t border-slate-200">
+            {/* Recommendation Overview Callout */}
             {recoveryReport.recommended_action && (
-              <div className="p-4 bg-purple-950/30 border border-purple-700/60 rounded-xl space-y-2">
+              <div className="p-4 bg-blue-50/60 border border-blue-200 rounded-lg space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-purple-300 font-bold text-sm">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Recommended Dispatch Plan
+                  <div className="flex items-center gap-2 text-blue-900 font-semibold text-sm">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Optimal Dispatch Recommendation
                   </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-800 font-bold">
-                    FEASIBLE & VERIFIED
+                  <span className="px-2.5 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    Constraint-Feasible & Verified
                   </span>
                 </div>
-                <p className="text-xs text-slate-200 leading-relaxed">{recoveryReport.recommended_action.description}</p>
+                <p className="text-xs text-slate-700 leading-relaxed">{recoveryReport.recommended_action.description}</p>
                 {recoveryReport.recommended_action.freight_surcharge_usd && (
-                  <div className="flex items-center gap-2 text-xs text-slate-400 pt-1">
-                    <Truck className="w-3.5 h-3.5 text-purple-400" />
-                    <span>Authorized Courier Cost: </span>
-                    <span className="text-rose-300 font-mono font-bold">
+                  <div className="flex items-center gap-2 text-xs text-slate-600 pt-1">
+                    <Truck className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Expedited Freight Surcharge: </span>
+                    <span className="text-slate-900 font-mono font-bold">
                       ${recoveryReport.recommended_action.freight_surcharge_usd}
                     </span>
                     <span className="text-slate-500">(Within manager $50.00 approval authority)</span>
@@ -214,71 +224,76 @@ export const RecoveryDecisionsView: React.FC = () => {
               </div>
             )}
 
-            {/* Decision Replay delta table */}
+            {/* Decision Replay: Verified Economic Impact Metrics */}
             {recoveryReport.decision_replay && (
               <div className="space-y-2">
-                <div className="text-xs font-mono font-bold uppercase tracking-wider text-slate-300">
-                  Net Economic & Capacity Impact Ledger
+                <div className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                  Verified Economic & Capacity Impact Ledger
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-                  <div className="p-3 bg-[#0d101a] border border-[#1e2638] rounded-lg">
-                    <div className="text-[10px] uppercase font-mono text-slate-500">Labor Contribution</div>
-                    <div className="text-xs font-bold text-emerald-400 font-mono mt-1">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-md">
+                    <div className="text-[11px] font-medium text-slate-500">Labor Protected</div>
+                    <div className="text-sm font-bold text-slate-900 font-mono mt-1">
                       +${recoveryReport.decision_replay.delta_gross_contribution_usd}
                     </div>
-                    <div className="text-[9px] text-slate-500">Unmitigated baseline</div>
+                    <div className="text-[10px] text-slate-500">Unmitigated baseline</div>
                   </div>
-                  <div className="p-3 bg-[#0d101a] border border-[#1e2638] rounded-lg">
-                    <div className="text-[10px] uppercase font-mono text-slate-500">Delivery Lateness</div>
-                    <div className="text-xs font-bold text-emerald-400 font-mono mt-1">
+
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-md">
+                    <div className="text-[11px] font-medium text-slate-500">Delivery Lateness</div>
+                    <div className="text-sm font-bold text-emerald-700 font-mono mt-1">
                       -195 min
                     </div>
-                    <div className="text-[9px] text-slate-500">Customer delays avoided</div>
+                    <div className="text-[10px] text-slate-500">Customer delay avoided</div>
                   </div>
-                  <div className="p-3 bg-[#0d101a] border border-[#1e2638] rounded-lg">
-                    <div className="text-[10px] uppercase font-mono text-slate-500">Courier Freight</div>
-                    <div className="text-xs font-bold text-rose-400 font-mono mt-1">
+
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-md">
+                    <div className="text-[11px] font-medium text-slate-500">Courier Freight</div>
+                    <div className="text-sm font-bold text-slate-700 font-mono mt-1">
                       -${recoveryReport.decision_replay.sourcing_freight_usd}
                     </div>
-                    <div className="text-[9px] text-slate-500">Expedited surcharge</div>
+                    <div className="text-[10px] text-slate-500">Expedited surcharge</div>
                   </div>
-                  <div className="p-3 bg-[#0d101a] border border-[#1e2638] rounded-lg">
-                    <div className="text-[10px] uppercase font-mono text-slate-500">BAY-01 Utilization</div>
-                    <div className="text-xs font-bold text-cyan-400 font-mono mt-1">
+
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-md">
+                    <div className="text-[11px] font-medium text-slate-500">BAY-01 Utilization</div>
+                    <div className="text-sm font-bold text-slate-900 font-mono mt-1">
                       +{recoveryReport.decision_replay.delta_bay_utilization_pct.toFixed(1)}%
                     </div>
-                    <div className="text-[9px] text-slate-500">Heavy lift uptime</div>
+                    <div className="text-[10px] text-slate-500">Active lift uptime</div>
                   </div>
-                  <div className="p-3 bg-[#0d101a] border border-[#1e2638] rounded-lg">
-                    <div className="text-[10px] uppercase font-mono text-slate-500">Avoided Idle Time</div>
-                    <div className="text-xs font-bold text-emerald-400 font-mono mt-1">
+
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-md">
+                    <div className="text-[11px] font-medium text-slate-500">Dead Lift Avoided</div>
+                    <div className="text-sm font-bold text-emerald-700 font-mono mt-1">
                       {recoveryReport.decision_replay.delta_idle_minutes} min
                     </div>
-                    <div className="text-[9px] text-slate-500">Dead lift hours saved</div>
+                    <div className="text-[10px] text-slate-500">Wasted stall hours freed</div>
                   </div>
-                  <div className="p-3 bg-emerald-950/20 border border-emerald-900/60 rounded-lg">
-                    <div className="text-[10px] uppercase font-mono text-emerald-400 font-bold">Net Economic Gain</div>
-                    <div className="text-xs font-bold text-emerald-300 font-mono mt-1">
+
+                  <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-md">
+                    <div className="text-[11px] font-semibold text-emerald-800">Net Economic Gain</div>
+                    <div className="text-sm font-bold text-emerald-700 font-mono mt-1">
                       +${recoveryReport.decision_replay.net_economic_delta_usd}
                     </div>
-                    <div className="text-[9px] text-emerald-400/80">Net recovery delta</div>
+                    <div className="text-[10px] text-emerald-600">Net recovery delta</div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Explainability in plain English */}
+            {/* Operational Explainability */}
             {recoveryReport.explainability && (
-              <div className="p-4 bg-[#0d101a] border border-[#1b2234] rounded-xl space-y-2 text-xs">
-                <div className="font-bold text-white text-sm">{recoveryReport.explainability.recommendation_summary}</div>
-                <p className="text-slate-300 leading-relaxed">
-                  <strong className="text-slate-200">Operational Reason: </strong>
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-md space-y-2 text-xs">
+                <div className="font-semibold text-slate-900 text-sm">{recoveryReport.explainability.recommendation_summary}</div>
+                <p className="text-slate-600 leading-relaxed">
+                  <strong className="text-slate-800 font-semibold">Operational Reasoning: </strong>
                   {recoveryReport.explainability.primary_driver}
                 </p>
                 {recoveryReport.explainability.unresolved_risks.length > 0 && (
-                  <div className="pt-2 border-t border-[#1b2234]">
-                    <div className="text-[10px] font-mono uppercase text-amber-400 font-bold mb-1">Active Courier Risks</div>
-                    <ul className="list-disc pl-4 space-y-0.5 text-slate-400">
+                  <div className="pt-2 border-t border-slate-200/80">
+                    <div className="text-[11px] font-semibold text-amber-800 mb-1">Carrier Risk Monitoring</div>
+                    <ul className="list-disc pl-4 space-y-0.5 text-slate-600">
                       {recoveryReport.explainability.unresolved_risks.map((r, i) => (
                         <li key={i}>{r}</li>
                       ))}
@@ -292,7 +307,7 @@ export const RecoveryDecisionsView: React.FC = () => {
             <div className="flex justify-end pt-2">
               <button
                 onClick={() => setActiveSection(4)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-xs shadow-lg transition-all"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-medium rounded-md text-xs shadow-xs transition-colors"
               >
                 <ShieldCheck className="w-4 h-4" />
                 <span>Verify Plan Against Operational Rules</span>

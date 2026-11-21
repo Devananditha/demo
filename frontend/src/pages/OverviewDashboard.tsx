@@ -25,40 +25,44 @@ import {
 function ReadinessBadge({ status }: { status: string }) {
   if (status === 'READY') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950 text-emerald-300 border border-emerald-800">
-        <CheckCircle2 className="w-2.5 h-2.5" /> Ready
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+        <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Ready
       </span>
     );
   }
   if (status === 'AT_RISK') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-950 text-amber-300 border border-amber-800">
-        <AlertTriangle className="w-2.5 h-2.5" /> At Risk
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+        <AlertTriangle className="w-3 h-3 text-amber-600" /> At Risk
       </span>
     );
   }
   if (status === 'BLOCKED') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-950 text-rose-300 border border-rose-800">
-        <XCircle className="w-2.5 h-2.5" /> Blocked
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">
+        <XCircle className="w-3 h-3 text-rose-600" /> Blocked
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
-      <Clock className="w-2.5 h-2.5" /> Checking...
+    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+      <Clock className="w-3 h-3 text-slate-400" /> Evaluating
     </span>
   );
 }
 
 function BayDisplay({ bay }: { bay: string }) {
-  if (bay === 'No assigned bay; task is pending') return <span className="text-slate-500 italic text-xs">Queue</span>;
-  if (bay.includes('In holding')) return <span className="text-slate-500 italic text-xs">Holding</span>;
+  if (bay === 'No assigned bay; task is pending') {
+    return <span className="text-slate-500 italic text-xs">Unassigned</span>;
+  }
+  if (bay.includes('In holding')) {
+    return <span className="text-slate-500 italic text-xs">Holding Queue</span>;
+  }
   if (bay.startsWith('BAY-')) {
     const id = bay.split(',')[0].trim();
-    return <span className="font-mono text-cyan-300 text-xs">{id}</span>;
+    return <span className="font-mono text-slate-800 font-semibold text-xs">{id}</span>;
   }
-  return <span className="text-slate-300 text-xs">{bay.split(',')[0]}</span>;
+  return <span className="text-slate-700 text-xs">{bay.split(',')[0]}</span>;
 }
 
 export const OverviewDashboard: React.FC = () => {
@@ -109,22 +113,22 @@ export const OverviewDashboard: React.FC = () => {
   const evalTime = workshopState ? tickToTime(workshopState.evaluation_tick) : '1:15 PM';
 
   return (
-    <div className="space-y-6 animate-fade-in pb-10">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="space-y-6 pb-8">
+      {/* Page Title & Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-white">Workshop Overview</h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Active repair orders as of <span className="text-cyan-300 font-medium">{evalTime}</span> &bull; {workshopState ? `Snapshot: ${workshopState.snapshot_hash.slice(0, 10)}…` : 'Connecting to shop telemetry…'}
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Workshop Overview</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Real-time status across 6 active repair orders &bull; Current evaluation time: <span className="font-semibold text-slate-700">{evalTime}</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
           {counts.atRisk > 0 && (
             <button
               onClick={() => setActiveSection(2)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-950/80 hover:bg-rose-900 text-rose-200 border border-rose-800 rounded-lg text-xs font-medium transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-md text-xs font-medium transition-colors"
             >
-              <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
               <span>Review Disruption ({counts.atRisk})</span>
               <ArrowRight className="w-3 h-3 ml-0.5" />
             </button>
@@ -132,69 +136,69 @@ export const OverviewDashboard: React.FC = () => {
           <button
             onClick={loadData}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-xs font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium shadow-xs transition-colors"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-400 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="p-3 bg-rose-950/40 border border-rose-800/80 rounded-lg text-rose-200 text-xs">
+        <div className="p-3 bg-rose-50 border border-rose-200 rounded-md text-rose-800 text-xs">
           {error}
         </div>
       )}
 
-      {/* KPI Cards */}
+      {/* KPI Cards Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-[#111522] border border-[#1e2638] rounded-xl p-4 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider">Total Active ROs</span>
-            <ClipboardList className="w-4 h-4 text-cyan-400" />
+            <span className="text-xs font-medium text-slate-500">Total Active ROs</span>
+            <ClipboardList className="w-4 h-4 text-slate-400" />
           </div>
-          <div className="text-3xl font-bold font-mono text-white">{counts.total}</div>
-          <div className="text-[11px] text-slate-500 mt-1">Shop floor pipeline</div>
+          <div className="text-2xl font-bold font-sans text-slate-900">{counts.total}</div>
+          <div className="text-xs text-slate-500 mt-1">Shop floor pipeline</div>
         </div>
 
-        <div className="bg-[#111522] border border-[#1e2638] rounded-xl p-4 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider">Ready to Work</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs font-medium text-slate-500">Ready to Work</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
           </div>
-          <div className="text-3xl font-bold font-mono text-emerald-300">{counts.ready}</div>
-          <div className="text-[11px] text-slate-500 mt-1">Parts & vehicle verified</div>
+          <div className="text-2xl font-bold font-sans text-emerald-700">{counts.ready}</div>
+          <div className="text-xs text-slate-500 mt-1">Parts & vehicle verified</div>
         </div>
 
-        <div className="bg-[#111522] border border-[#1e2638] rounded-xl p-4 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider">At Risk</span>
-            <AlertTriangle className="w-4 h-4 text-amber-400" />
+            <span className="text-xs font-medium text-slate-500">At Risk</span>
+            <AlertTriangle className="w-4 h-4 text-amber-500" />
           </div>
-          <div className="text-3xl font-bold font-mono text-amber-300">{counts.atRisk}</div>
-          <div className="text-[11px] text-slate-500 mt-1">Delivery promise threatened</div>
+          <div className="text-2xl font-bold font-sans text-amber-700">{counts.atRisk}</div>
+          <div className="text-xs text-slate-500 mt-1">Delivery promise threatened</div>
         </div>
 
-        <div className="bg-[#111522] border border-[#1e2638] rounded-xl p-4 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider">Blocked</span>
-            <XCircle className="w-4 h-4 text-rose-400" />
+            <span className="text-xs font-medium text-slate-500">Blocked</span>
+            <XCircle className="w-4 h-4 text-rose-500" />
           </div>
-          <div className="text-3xl font-bold font-mono text-rose-300">{counts.blocked}</div>
-          <div className="text-[11px] text-slate-500 mt-1">Awaiting parts allocation</div>
+          <div className="text-2xl font-bold font-sans text-rose-700">{counts.blocked}</div>
+          <div className="text-xs text-slate-500 mt-1">Awaiting parts allocation</div>
         </div>
       </div>
 
-      {/* RO Table */}
-      <div className="bg-[#111522] border border-[#1e2638] rounded-xl shadow-xl overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-[#1e2638] flex items-center justify-between">
+      {/* Repair Order Table */}
+      <div className="bg-white border border-slate-200 rounded-lg shadow-xs overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h3 className="text-sm font-bold text-white">Repair Order Status Board</h3>
-            <p className="text-xs text-slate-400">Click any row to view customer complaint, technician assignment, and readiness details.</p>
+            <h3 className="text-sm font-semibold text-slate-900">Repair Orders Roster</h3>
+            <p className="text-xs text-slate-500">Select any order to expand customer complaint, assigned bay, and readiness status notes.</p>
           </div>
           {readinessReport && (
-            <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800">
-              Live Readiness Synced
+            <span className="text-xs text-slate-600 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200 font-medium">
+              Readiness Synchronized
             </span>
           )}
         </div>
@@ -202,88 +206,91 @@ export const OverviewDashboard: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-[#1e2638] bg-[#0d111a]/60">
-                <th className="text-left px-4 py-2.5 font-mono uppercase text-[10px] text-slate-500 tracking-wider">RO ID</th>
-                <th className="text-left px-4 py-2.5 font-mono uppercase text-[10px] text-slate-500 tracking-wider">Vehicle</th>
-                <th className="text-left px-4 py-2.5 font-mono uppercase text-[10px] text-slate-500 tracking-wider">Customer</th>
-                <th className="text-left px-4 py-2.5 font-mono uppercase text-[10px] text-slate-500 tracking-wider">Bay</th>
-                <th className="text-left px-4 py-2.5 font-mono uppercase text-[10px] text-slate-500 tracking-wider">Readiness</th>
-                <th className="text-left px-4 py-2.5 font-mono uppercase text-[10px] text-slate-500 tracking-wider">Promise Time</th>
-                <th className="text-left px-4 py-2.5 font-mono uppercase text-[10px] text-slate-500 tracking-wider">Action Needed</th>
+              <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 font-semibold text-left">
+                <th className="px-4 py-3">Order ID</th>
+                <th className="px-4 py-3">Vehicle</th>
+                <th className="px-4 py-3">Customer</th>
+                <th className="px-4 py-3">Assigned Bay</th>
+                <th className="px-4 py-3">Readiness Status</th>
+                <th className="px-4 py-3">Promised Delivery</th>
+                <th className="px-4 py-3">Operational Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#1b2234]">
+            <tbody className="divide-y divide-slate-100">
               {ros.map((ro) => {
                 const isExpanded = expandedRo === ro.roId;
                 const needsAttention = ro.readinessStatus === 'AT_RISK' || ro.readinessStatus === 'BLOCKED';
                 return (
                   <React.Fragment key={ro.roId}>
                     <tr
-                      className={`hover:bg-[#111926] transition-colors cursor-pointer ${needsAttention ? 'bg-rose-950/10' : ''}`}
+                      className={`hover:bg-slate-50/80 transition-colors cursor-pointer ${
+                        isExpanded ? 'bg-blue-50/30' : needsAttention ? 'bg-amber-50/20' : ''
+                      }`}
                       onClick={() => setExpandedRo(isExpanded ? null : ro.roId)}
                     >
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 font-medium">
                         <div className="flex items-center gap-1.5">
                           {isExpanded ? (
-                            <ChevronDown className="w-3 h-3 text-slate-500" />
+                            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
                           ) : (
-                            <ChevronRight className="w-3 h-3 text-slate-500" />
+                            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                           )}
-                          <span className="font-mono font-bold text-cyan-300">{ro.roId}</span>
+                          <span className="font-mono font-bold text-slate-900">{ro.roId}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-slate-200">{ro.vehicle}</td>
-                      <td className="px-4 py-3 text-slate-300">{ro.customerName}</td>
+                      <td className="px-4 py-3 text-slate-800">{ro.vehicle}</td>
+                      <td className="px-4 py-3 text-slate-700">{ro.customerName}</td>
                       <td className="px-4 py-3">
                         <BayDisplay bay={ro.bay} />
                       </td>
                       <td className="px-4 py-3">
                         <ReadinessBadge status={ro.readinessStatus} />
                       </td>
-                      <td className="px-4 py-3 font-mono text-slate-300">{ro.promisedDelivery}</td>
+                      <td className="px-4 py-3 font-mono font-medium text-slate-800">{ro.promisedDelivery}</td>
                       <td className="px-4 py-3">
                         {ro.readinessStatus === 'AT_RISK' && (
-                          <span className="inline-flex items-center gap-1 text-amber-300 text-[10px] font-medium">
-                            <AlertTriangle className="w-3 h-3" /> Supplier delay &bull; Bay stalled
+                          <span className="text-amber-800 text-xs font-medium inline-flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3 text-amber-600" /> Supplier delay on lift
                           </span>
                         )}
                         {ro.readinessStatus === 'BLOCKED' && (
-                          <span className="inline-flex items-center gap-1 text-rose-300 text-[10px] font-medium">
-                            <XCircle className="w-3 h-3" /> National backorder
+                          <span className="text-rose-800 text-xs font-medium inline-flex items-center gap-1">
+                            <XCircle className="w-3 h-3 text-rose-600" /> National backorder
                           </span>
                         )}
                         {ro.readinessStatus === 'READY' && (
-                          <span className="text-slate-500 text-[10px]">Normal progression</span>
+                          <span className="text-slate-500 text-xs">On Schedule</span>
                         )}
                       </td>
                     </tr>
                     {isExpanded && (
-                      <tr className="bg-[#0d111a]">
+                      <tr className="bg-slate-50/90 border-t border-slate-200">
                         <td colSpan={7} className="px-6 py-4">
-                          <div className="space-y-2 text-xs">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <div>
-                                <span className="text-slate-500 font-mono uppercase text-[10px]">Customer Complaint: </span>
-                                <p className="text-slate-200 mt-0.5">{ro.customerComplaint}</p>
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="bg-white p-3 rounded-md border border-slate-200 text-xs">
+                                <span className="font-semibold text-slate-700 block mb-1">Customer Complaint</span>
+                                <p className="text-slate-600 leading-relaxed">{ro.customerComplaint}</p>
                               </div>
-                              <div>
-                                <span className="text-slate-500 font-mono uppercase text-[10px]">Readiness Status Note: </span>
-                                <p className="text-slate-300 mt-0.5">{ro.readinessDetails}</p>
+                              <div className="bg-white p-3 rounded-md border border-slate-200 text-xs">
+                                <span className="font-semibold text-slate-700 block mb-1">Readiness Assessment Notes</span>
+                                <p className="text-slate-600 leading-relaxed">{ro.readinessDetails}</p>
                               </div>
                             </div>
-                            <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-[#1b2234]">
-                              <div className="flex gap-4">
+
+                            <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-slate-200/80">
+                              <div className="flex items-center gap-6 text-xs">
                                 <div>
-                                  <span className="text-slate-500 font-mono text-[10px] uppercase">Labor Gross: </span>
-                                  <span className="text-emerald-300 font-mono font-semibold">${ro.laborGrossUsd.toFixed(2)}</span>
+                                  <span className="text-slate-500">Labor Gross: </span>
+                                  <span className="font-mono font-semibold text-slate-900">${ro.laborGrossUsd.toFixed(2)}</span>
                                 </div>
                                 <div>
-                                  <span className="text-slate-500 font-mono text-[10px] uppercase">Priority Weight: </span>
-                                  <span className="text-cyan-300 font-mono font-semibold">{ro.priorityWeight}</span>
+                                  <span className="text-slate-500">Priority Weight: </span>
+                                  <span className="font-semibold text-slate-800">Tier {ro.priorityWeight}</span>
                                 </div>
                                 <div>
-                                  <span className="text-slate-500 font-mono text-[10px] uppercase">Physical State: </span>
-                                  <span className="text-amber-300 font-mono font-semibold">{ro.physicalState}</span>
+                                  <span className="text-slate-500">Vehicle State: </span>
+                                  <span className="font-medium text-slate-800">{ro.physicalState}</span>
                                 </div>
                               </div>
 
@@ -293,10 +300,10 @@ export const OverviewDashboard: React.FC = () => {
                                     e.stopPropagation();
                                     setActiveSection(2);
                                   }}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-700 rounded text-xs font-medium transition-colors"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-xs font-medium shadow-xs transition-colors"
                                 >
-                                  <span>Investigate Disruption Cascade</span>
-                                  <ArrowRight className="w-3 h-3" />
+                                  <span>Inspect Bottleneck Impact</span>
+                                  <ArrowRight className="w-3.5 h-3.5" />
                                 </button>
                               )}
                             </div>
@@ -312,71 +319,73 @@ export const OverviewDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Bay + Technician capacity cards */}
+      {/* Workshop Resources Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Bay capacity */}
-        <div className="bg-[#121624] border border-[#1e2638] rounded-xl p-5 space-y-3">
-          <div className="flex items-center justify-between">
+        {/* Service Bays */}
+        <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
-              <Warehouse className="w-4 h-4 text-amber-400" />
-              <h4 className="text-xs font-bold text-slate-200 uppercase font-mono tracking-wider">Service Bays</h4>
+              <Warehouse className="w-4 h-4 text-slate-600" />
+              <h4 className="text-sm font-semibold text-slate-900">Service Bay Allocations</h4>
             </div>
-            <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-amber-950 text-amber-400 border border-amber-800">
-              {KPI_DATA.operationalBays}
+            <span className="text-xs font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+              {KPI_DATA.operationalBays} Operational
             </span>
           </div>
-          <div className="space-y-2 text-xs font-mono">
+
+          <div className="space-y-2 text-xs">
             {[
-              { id: 'BAY-01', name: 'Heavy Diagnostic Lift', capacity: '12,000 lbs', ro: 'RO-104', status: 'occupied', color: 'rose' },
-              { id: 'BAY-02', name: '2-Post Mechanical', capacity: '10,000 lbs', ro: 'RO-101', status: 'active', color: 'emerald' },
-              { id: 'BAY-03', name: '2-Post Mechanical', capacity: '10,000 lbs', ro: 'RO-102', status: 'active', color: 'emerald' },
+              { id: 'BAY-01', name: 'Heavy Diagnostic Lift', spec: '12,000 lbs', ro: 'RO-104', status: 'Stalled', color: 'amber' },
+              { id: 'BAY-02', name: '2-Post Mechanical Lift 1', spec: '10,000 lbs', ro: 'RO-101', status: 'Active', color: 'emerald' },
+              { id: 'BAY-03', name: '2-Post Mechanical Lift 2', spec: '10,000 lbs', ro: 'RO-102', status: 'Active', color: 'emerald' },
             ].map((bay) => (
-              <div key={bay.id} className="p-2.5 bg-[#0d101a] border border-[#1b2234] rounded-lg flex items-center justify-between">
+              <div key={bay.id} className="p-2.5 bg-slate-50 border border-slate-200 rounded-md flex items-center justify-between">
                 <div>
-                  <div className="font-bold text-white">{bay.id} — {bay.name}</div>
-                  <div className="text-[10px] text-slate-500">{bay.capacity}</div>
+                  <div className="font-semibold text-slate-900">{bay.id} &bull; {bay.name}</div>
+                  <div className="text-[11px] text-slate-500">{bay.spec}</div>
                 </div>
-                <span className={`px-2 py-0.5 rounded text-[10px] ${
-                  bay.color === 'rose'
-                    ? 'bg-rose-950 text-rose-300 border border-rose-800'
-                    : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                  bay.color === 'amber'
+                    ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                    : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                 }`}>
-                  {bay.status === 'occupied' ? `Stalled (${bay.ro})` : `Active (${bay.ro})`}
+                  {bay.status} ({bay.ro})
                 </span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Technician capacity */}
-        <div className="bg-[#121624] border border-[#1e2638] rounded-xl p-5 space-y-3">
-          <div className="flex items-center justify-between">
+        {/* Technicians */}
+        <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-cyan-400" />
-              <h4 className="text-xs font-bold text-slate-200 uppercase font-mono tracking-wider">Technicians</h4>
+              <Users className="w-4 h-4 text-slate-600" />
+              <h4 className="text-sm font-semibold text-slate-900">Technician Fleet Roster</h4>
             </div>
-            <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-cyan-950 text-cyan-400 border border-cyan-800">
-              {KPI_DATA.activeTechnicians}
+            <span className="text-xs font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+              {KPI_DATA.activeTechnicians} Active
             </span>
           </div>
-          <div className="space-y-2 text-xs font-mono">
+
+          <div className="space-y-2 text-xs">
             {[
-              { id: 'TECH-01', name: 'Marcus V.', skills: 'Diagnostic, EV', status: 'Available', color: 'slate' },
-              { id: 'TECH-02', name: 'Elena R.', skills: 'Transmission, Mech', status: 'Stalled (RO-104)', color: 'amber' },
-              { id: 'TECH-03', name: 'David K.', skills: 'Brakes, Mech', status: 'Active', color: 'emerald' },
-              { id: 'TECH-04', name: 'James P.', skills: 'Express', status: 'Active', color: 'emerald' },
+              { id: 'TECH-01', name: 'Marcus V.', cert: 'Diagnostic, EV Systems', status: 'Available', color: 'slate' },
+              { id: 'TECH-02', name: 'Elena R.', cert: 'Transmission, Powertrain', status: 'Stalled (RO-104)', color: 'amber' },
+              { id: 'TECH-03', name: 'David K.', cert: 'Brakes, Suspension', status: 'In Repair (RO-101)', color: 'emerald' },
+              { id: 'TECH-04', name: 'James P.', cert: 'General Maintenance', status: 'In Inspection (RO-102)', color: 'emerald' },
             ].map((tech) => (
-              <div key={tech.id} className="p-2.5 bg-[#0d101a] border border-[#1b2234] rounded-lg flex items-center justify-between">
+              <div key={tech.id} className="p-2.5 bg-slate-50 border border-slate-200 rounded-md flex items-center justify-between">
                 <div>
-                  <div className="font-bold text-white">{tech.name}</div>
-                  <div className="text-[10px] text-slate-500">{tech.skills}</div>
+                  <div className="font-semibold text-slate-900">{tech.name}</div>
+                  <div className="text-[11px] text-slate-500">{tech.cert}</div>
                 </div>
-                <span className={`px-1.5 py-0.5 text-[10px] rounded ${
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                   tech.color === 'amber'
-                    ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                    ? 'bg-amber-50 text-amber-800 border border-amber-200'
                     : tech.color === 'emerald'
-                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                    : 'bg-slate-800 text-slate-300'
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                    : 'bg-slate-100 text-slate-700 border border-slate-200'
                 }`}>
                   {tech.status}
                 </span>
@@ -386,17 +395,19 @@ export const OverviewDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Potential Labor Gross */}
-      <div className="bg-[#111522] border border-[#1e2638] rounded-xl p-4 flex items-center justify-between">
+      {/* Target Revenue Banner */}
+      <div className="bg-white border border-slate-200 rounded-lg p-4 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-3">
-          <DollarSign className="w-5 h-5 text-purple-400" />
+          <div className="w-9 h-9 rounded-md bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-700">
+            <DollarSign className="w-5 h-5" />
+          </div>
           <div>
-            <div className="text-xs font-mono text-slate-400 uppercase tracking-wider">Potential Labor Gross</div>
-            <div className="text-2xl font-bold font-mono text-cyan-300 mt-0.5">{KPI_DATA.potentialLaborGross}</div>
+            <div className="text-xs font-medium text-slate-500">Active Shift Target Revenue</div>
+            <div className="text-xl font-bold font-mono text-slate-900">{KPI_DATA.potentialLaborGross}</div>
           </div>
         </div>
-        <span className="text-[10px] font-mono text-slate-500 bg-slate-800/60 px-2 py-0.5 rounded border border-slate-700">
-          Target gross across 6 active repair orders
+        <span className="text-xs text-slate-500 bg-slate-50 px-3 py-1 rounded-md border border-slate-200">
+          6 scheduled repair orders
         </span>
       </div>
     </div>

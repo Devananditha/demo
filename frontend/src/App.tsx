@@ -14,35 +14,33 @@ const AppContent: React.FC = () => {
   const { activeSection, setActiveSection } = useAppState();
 
   const handleSelectLegacyStage = (legacyStageId: number) => {
-    // Map legacy stage IDs to the 5 operational sections
     if (legacyStageId === 1 || legacyStageId === 2 || legacyStageId === 3) {
-      setActiveSection(1); // Overview
+      setActiveSection(1);
     } else if (legacyStageId === 4) {
-      setActiveSection(2); // Disruptions
+      setActiveSection(2);
     } else if (legacyStageId === 5 || legacyStageId === 8) {
-      setActiveSection(3); // Recovery Decisions
+      setActiveSection(3);
     } else if (legacyStageId === 6) {
-      setActiveSection(4); // Verification & Approval
+      setActiveSection(4);
     } else if (legacyStageId === 7) {
-      setActiveSection(5); // Performance & Insights
+      setActiveSection(5);
     } else if (legacyStageId === 9) {
-      setActiveSection(6); // Evaluation / Benchmarks
+      setActiveSection(6);
     } else {
       setActiveSection(1);
     }
   };
 
   return (
-    <div className="min-h-screen bg-sy-navy text-slate-100 flex flex-col font-sans selection:bg-sy-accent selection:text-white">
-      {/* Persistent Operations Header */}
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-blue-100 selection:text-blue-900">
+      {/* Persistent Enterprise Operations Header */}
       <Header />
+
+      {/* Main Navigation Bar */}
+      <NavigationTabs />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Navigation Tabs */}
-        <NavigationTabs />
-
-        {/* View Routing */}
         {activeSection === 1 ? (
           <OverviewDashboard />
         ) : activeSection === 2 ? (
@@ -59,15 +57,15 @@ const AppContent: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-sy-border/60 bg-sy-navy/80 py-4 mt-auto">
+      <footer className="border-t border-slate-200 bg-white py-4 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
           <div className="flex items-center space-x-2">
-            <ShieldAlert className="w-3.5 h-3.5 text-amber-500/80" />
+            <ShieldAlert className="w-3.5 h-3.5 text-slate-400" />
             <span>
-              Synthetic Golden Demo Environment &bull; Advisory Decision Intelligence for Dealership Fixed Operations
+              Synthetic Demonstration Environment &bull; Advisory Decision Intelligence for Automotive Fixed Operations
             </span>
           </div>
-          <div>
+          <div className="text-slate-400">
             &copy; {new Date().getFullYear()} ServiceYield AI. All rights reserved.
           </div>
         </div>
