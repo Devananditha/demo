@@ -186,3 +186,23 @@ export async function approveStallBreakerRecovery(
   }
   return res.json();
 }
+
+
+export async function fetchBenchmarkResults(seed: number = 42): Promise<import('../types').BenchmarkSuiteReport> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/benchmark/results?seed=${seed}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch benchmark results (HTTP ${res.status})`);
+  }
+  return res.json();
+}
+
+export async function triggerBenchmarkRun(seed: number = 42): Promise<import('../types').BenchmarkSuiteReport> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/benchmark/run?seed=${seed}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to trigger benchmark run (HTTP ${res.status})`);
+  }
+  return res.json();
+}

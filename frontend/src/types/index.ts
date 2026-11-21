@@ -341,3 +341,69 @@ export interface CommitResult {
   error_code?: string | null;
   message?: string | null;
 }
+
+
+// ============================================================================
+// PHASE 2 & 4: BENCHMARK & STATISTICAL EVALUATION TYPES
+// ============================================================================
+
+export type BenchmarkScenarioType =
+  | 'NORMAL_OPERATIONS'
+  | 'SPECIALISED_BAY_CONTENTION'
+  | 'PARTS_DELAY'
+  | 'TECHNICIAN_SHORTAGE'
+  | 'COMPETING_RESERVATIONS'
+  | 'SATURATED_CAPACITY'
+  | 'NULL_CONTROL';
+
+export type DispatchMethod = 'FIFO' | 'EDF' | 'CPSAT' | 'STALLBREAKER';
+
+export interface BenchmarkMetrics {
+  method: DispatchMethod;
+  gross_contribution_usd: string;
+  weighted_lateness_penalty_usd: string;
+  total_weighted_lateness_ticks: number;
+  lateness_minutes: number;
+  on_time_delivery_rate: number;
+  technician_utilisation_rate: number;
+  bay_utilisation_rate: number;
+  workshop_idle_minutes: number;
+  recovery_plan_churn: number;
+  solve_time_ms: number;
+  constraint_violations: number;
+  is_verified: boolean;
+  is_fully_certified: boolean;
+  net_objective_usd: string;
+}
+
+export interface ScenarioBenchmarkResult {
+  scenario_id: string;
+  scenario_type: BenchmarkScenarioType;
+  title: string;
+  description: string;
+  seed: number;
+  methods: Record<string, BenchmarkMetrics>;
+  stallbreaker_advantage_usd: string;
+  replay_record_id?: string | null;
+}
+
+export interface StatisticalMetricSummary {
+  metric_name: string;
+  baseline_mean: number;
+  stallbreaker_mean: number;
+  mean_delta: number;
+  pct_improvement: number;
+  ci_95_lower: number;
+  ci_95_upper: number;
+  p_value: number;
+  is_statistically_significant: boolean;
+}
+
+export interface BenchmarkSuiteReport {
+  benchmark_id: string;
+  executed_at: string;
+  scenarios: ScenarioBenchmarkResult[];
+  statistical_summaries: StatisticalMetricSummary[];
+  total_scenarios_evaluated: number;
+  all_violations_zero: boolean;
+}
