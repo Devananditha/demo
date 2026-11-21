@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   fetchCanonicalState,
   fetchPredictReadiness,
+  fetchInitialSchedule,
 } from '../api/predictClient';
 import { useAppState } from '../context/AppStateContext';
 import { MOCK_REPAIR_ORDERS, KPI_DATA } from '../data/mockData';
@@ -20,6 +21,7 @@ import {
   ChevronDown,
   ChevronRight,
   ArrowRight,
+  Cpu,
 } from 'lucide-react';
 
 function ReadinessBadge({ status }: { status: string }) {
@@ -95,7 +97,15 @@ function BayDisplay({ bay }: { bay: string }) {
 }
 
 export const OverviewDashboard: React.FC = () => {
-  const { workshopState, readinessReport, setWorkshopState, setReadinessReport, setActiveSection } = useAppState();
+  const {
+    workshopState,
+    readinessReport,
+    initialSchedule,
+    setWorkshopState,
+    setReadinessReport,
+    setInitialSchedule,
+    setActiveSection,
+  } = useAppState();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedRo, setExpandedRo] = useState<string | null>('RO-104');
@@ -108,6 +118,16 @@ export const OverviewDashboard: React.FC = () => {
       setWorkshopState(state);
       const report = await fetchPredictReadiness(state.rooftop_id, state.snapshot_hash);
       setReadinessReport(report);
+
+      // Capture pre-disruption baseline schedule if not yet captured
+      if (!initialSchedule) {
+        try {
+          const schedule = await fetchInitialSchedule(state.rooftop_id, state.snapshot_hash);
+          setInitialSchedule(schedule, state.snapshot_hash);
+        } catch (schedErr) {
+          console.warn('Initial scheduling API warning:', schedErr);
+        }
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load workshop data.');
     } finally {
@@ -118,6 +138,10 @@ export const OverviewDashboard: React.FC = () => {
   useEffect(() => {
     if (!workshopState) {
       loadData();
+    } else if (!initialSchedule) {
+      fetchInitialSchedule(workshopState.rooftop_id, workshopState.snapshot_hash)
+        .then((s) => setInitialSchedule(s, workshopState.snapshot_hash))
+        .catch((err) => console.warn('Initial schedule warning:', err));
     }
   }, []);
 
@@ -214,6 +238,52 @@ export const OverviewDashboard: React.FC = () => {
           </div>
           <div className="text-2xl font-bold font-sans text-rose-800">{counts.blocked}</div>
           <div className="text-xs text-stone-500 mt-1">Awaiting parts allocation</div>
+        </div>
+      </div>
+
+      {/* Initial Baseline Schedule Summary */}
+      <div className="bg-white border border-[#e5dfd5] rounded-lg p-4 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-md bg-[#f5f1e8] border border-[#ded7c8] flex items-center justify-center text-stone-700 shrink-0">
+              <Cpu className="w-4 h-4 text-stone-700" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-stone-900">Initial Baseline Schedule</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#f5f1e8] text-stone-600 border border-[#ded7c8]">
+                  Pre-Disruption Anchor
+                </span>
+              </div>
+              <p className="text-xs text-stone-500 mt-0.5">
+                Deterministic CP-SAT schedule computed on canonical pre-disruption state.
+              </p>
+            </div>
+          </div>
+
+          {initialSchedule ? (
+            <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
+              <div className="bg-[#faf8f5] px-2.5 py-1.5 rounded border border-[#e5dfd5]">
+                <span className="text-stone-500 font-sans mr-1.5">Solver Status:</span>
+                <span className="font-bold text-emerald-800">{initialSchedule.solver_status}</span>
+              </div>
+              <div className="bg-[#faf8f5] px-2.5 py-1.5 rounded border border-[#e5dfd5]">
+                <span className="text-stone-500 font-sans mr-1.5">Solver Tier:</span>
+                <span className="font-semibold text-stone-800">{initialSchedule.solver_tier}</span>
+              </div>
+              <div className="bg-[#faf8f5] px-2.5 py-1.5 rounded border border-[#e5dfd5]">
+                <span className="text-stone-500 font-sans mr-1.5">Scheduled Assignments:</span>
+                <span className="font-bold text-stone-900">
+                  {initialSchedule.plan?.assignments?.length ?? 0} Tasks
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs text-stone-400 italic flex items-center gap-1.5">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-stone-400" />
+              <span>Computing initial baseline schedule…</span>
+            </div>
+          )}
         </div>
       </div>
 

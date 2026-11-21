@@ -3,6 +3,7 @@ import {
   CommitResult,
   DealershipReadinessReport,
   DealershipStateResponse,
+  ScheduleResult,
   StallBreakerRecoveryReport,
 } from '../types';
 
@@ -11,6 +12,8 @@ export interface AppState {
   setActiveSection: (section: number) => void;
   workshopState: DealershipStateResponse | null;
   readinessReport: DealershipReadinessReport | null;
+  initialSchedule: ScheduleResult | null;
+  initialSnapshotHash: string | null;
   recoveryReport: StallBreakerRecoveryReport | null;
   selectedPlanId: string | null;
   setSelectedPlanId: (id: string | null) => void;
@@ -21,6 +24,7 @@ export interface AppState {
   hasRunVerification: boolean;
   setWorkshopState: (state: DealershipStateResponse | null) => void;
   setReadinessReport: (report: DealershipReadinessReport | null) => void;
+  setInitialSchedule: (schedule: ScheduleResult | null, snapshotHash?: string | null) => void;
   setRecoveryReport: (report: StallBreakerRecoveryReport | null) => void;
   setVerificationResult: (result: any | null) => void;
   setApprovalResult: (result: CommitResult | null) => void;
@@ -34,12 +38,27 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [activeSection, setActiveSection] = useState<number>(1);
   const [workshopState, setWorkshopState] = useState<DealershipStateResponse | null>(null);
   const [readinessReport, setReadinessReport] = useState<DealershipReadinessReport | null>(null);
+  const [initialSchedule, setInitialScheduleState] = useState<ScheduleResult | null>(null);
+  const [initialSnapshotHash, setInitialSnapshotHash] = useState<string | null>(null);
   const [recoveryReport, setRecoveryReport] = useState<StallBreakerRecoveryReport | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [verificationResult, setVerificationResult] = useState<any | null>(null);
   const [approvalResult, setApprovalResult] = useState<CommitResult | null>(null);
   const [hasRunRecovery, setHasRunRecovery] = useState<boolean>(false);
   const [hasRunVerification, setHasRunVerification] = useState<boolean>(false);
+
+  // Preserve pre-disruption baseline: never overwrite if already captured
+  const setInitialSchedule = (schedule: ScheduleResult | null, snapshotHash?: string | null) => {
+    setInitialScheduleState((prev) => {
+      if (prev && schedule !== null) {
+        return prev;
+      }
+      return schedule;
+    });
+    if (snapshotHash) {
+      setInitialSnapshotHash((prev) => prev || snapshotHash);
+    }
+  };
 
   // Single Source of Truth: derive the selected alternative
   const activePlanId = selectedPlanId || recoveryReport?.recommended_plan_id || null;
@@ -61,6 +80,8 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setActiveSection,
         workshopState,
         readinessReport,
+        initialSchedule,
+        initialSnapshotHash,
         recoveryReport,
         selectedPlanId,
         setSelectedPlanId,
@@ -71,6 +92,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         hasRunVerification,
         setWorkshopState,
         setReadinessReport,
+        setInitialSchedule,
         setRecoveryReport: handleSetRecoveryReport,
         setVerificationResult,
         setApprovalResult,
