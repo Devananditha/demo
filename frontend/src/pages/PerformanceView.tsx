@@ -14,13 +14,45 @@ import {
 } from 'lucide-react';
 
 export const PerformanceView: React.FC = () => {
-  const { recoveryReport, approvalResult, hasRunRecovery, setActiveSection } = useAppState();
+  const {
+    recoveryReport,
+    approvalResult,
+    hasRunRecovery,
+    setActiveSection,
+    selectedAlternative,
+  } = useAppState();
 
-  // Totals from mock ROs
   const totalLaborGross = MOCK_REPAIR_ORDERS.reduce((sum, ro) => sum + ro.laborGrossUsd, 0);
-  const onTimeCount = hasRunRecovery ? 5 : 4; // RO-104 is protected when recovery is run
 
   const dr = recoveryReport?.decision_replay;
+  const freightUsd = selectedAlternative
+    ? Number(selectedAlternative.sourcing_cost_usd)
+    : Number(dr?.sourcing_freight_usd ?? 37.0);
+  const netDeltaUsd = selectedAlternative
+    ? Number(selectedAlternative.net_recovery_delta_usd)
+    : Number(dr?.net_economic_delta_usd ?? 463.0);
+  const supplierName =
+    selectedAlternative?.sourcing_candidate?.supplier_name || 'Regional Hotshot Dedicated Courier';
+
+  const assignments = selectedAlternative?.schedule_result?.plan?.assignments || [];
+  const getRoFinishTick = (roId: string) => {
+    const roAssigns = assignments.filter((a: any) => a.ro_id === roId);
+    if (roAssigns.length === 0) return null;
+    return Math.max(...roAssigns.map((a: any) => a.end_tick));
+  };
+
+  const onTimeCount = hasRunRecovery
+    ? MOCK_REPAIR_ORDERS.filter((ro) => {
+        if (ro.roId === 'RO-104') {
+          const finish = getRoFinishTick('RO-104');
+          return finish !== null ? finish <= ro.promiseTick : true;
+        }
+        if (ro.roId === 'RO-106') {
+          return false; // Rescued into overtime
+        }
+        return ro.readinessStatus === 'READY';
+      }).length
+    : 3;
 
   function KpiCard({
     label,
@@ -38,19 +70,19 @@ export const PerformanceView: React.FC = () => {
     placeholder?: string;
   }) {
     return (
-      <div className="bg-[#121624] border border-[#1e2638] rounded-xl p-5 flex flex-col justify-between space-y-3">
+      <div className="bg-white border border-[#e5dfd5] rounded-lg p-5 flex flex-col justify-between space-y-3 shadow-xs">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">{label}</span>
-          <Icon className={`w-4 h-4 ${color || 'text-slate-400'}`} />
+          <span className="text-xs font-medium text-stone-500">{label}</span>
+          <Icon className={`w-4 h-4 ${color || 'text-stone-400'}`} />
         </div>
         {hasRunRecovery && value !== undefined ? (
           <div>
-            <div className={`text-2xl font-bold font-mono ${color || 'text-white'}`}>{value}</div>
-            {sub && <div className="text-[11px] text-slate-500 mt-0.5">{sub}</div>}
+            <div className={`text-2xl font-bold font-mono ${color || 'text-stone-900'}`}>{value}</div>
+            {sub && <div className="text-xs text-stone-500 mt-1">{sub}</div>}
           </div>
         ) : (
           <div>
-            <div className="text-xs font-mono text-slate-500 italic">
+            <div className="text-xs text-stone-400 italic">
               {placeholder || 'Available after Recovery step'}
             </div>
           </div>
@@ -60,19 +92,19 @@ export const PerformanceView: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 pb-10">
-      {/* Header */}
-      <div className="bg-[#111522] border border-emerald-800/60 rounded-xl p-5 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="space-y-6 pb-8">
+      {/* Header Banner */}
+      <div className="bg-white border border-[#e5dfd5] rounded-lg p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
-              <Award className="w-4 h-4 text-emerald-400" />
-              <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider font-mono">
+              <Award className="w-4 h-4 text-stone-800" />
+              <span className="text-xs font-semibold text-stone-800 uppercase tracking-wide">
                 Executive Operations Ledger
               </span>
             </div>
-            <h2 className="text-lg font-bold text-white">Performance & Economic Insights</h2>
-            <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
+            <h2 className="text-xl font-bold text-stone-900 tracking-tight">Performance & Economic Insights</h2>
+            <p className="text-xs text-stone-500 mt-1 max-w-2xl leading-relaxed">
               Consolidated outcome metrics measuring contribution margin protected, customer promise adherence,
               and physical service-bay utilization under verified decision intelligence.
             </p>
@@ -81,7 +113,7 @@ export const PerformanceView: React.FC = () => {
           {!hasRunRecovery && (
             <button
               onClick={() => setActiveSection(3)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-semibold shadow-md transition-colors self-start sm:self-auto shrink-0"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-md text-xs font-medium shadow-xs transition-colors self-start sm:self-auto shrink-0"
             >
               <span>Run Recovery Optimizer</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -89,8 +121,8 @@ export const PerformanceView: React.FC = () => {
           )}
 
           {approvalResult?.status === 'COMMITTED' && (
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-950 text-emerald-300 border border-emerald-800 rounded-lg text-xs font-mono font-bold self-start sm:self-auto shrink-0">
-              <CheckCircle2 className="w-3.5 h-3.5" />
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-md text-xs font-medium self-start sm:self-auto shrink-0">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
               <span>DISPATCH COMMITTED</span>
             </div>
           )}
@@ -102,95 +134,95 @@ export const PerformanceView: React.FC = () => {
         <KpiCard
           label="Total Potential Labor Gross"
           value={`$${totalLaborGross.toFixed(2)}`}
-          sub="6 active repair orders"
-          color="text-cyan-300"
+          sub="6 scheduled repair orders"
+          color="text-stone-900"
           icon={DollarSign}
           placeholder="Always available"
         />
         <KpiCard
           label="Expedited Freight Investment"
-          value={dr ? `-$${dr.sourcing_freight_usd}` : undefined}
-          sub="Regional Hotshot dedicated courier"
-          color="text-rose-300"
+          value={hasRunRecovery ? `-$${freightUsd.toFixed(2)}` : undefined}
+          sub={supplierName}
+          color="text-rose-800"
           icon={Truck}
         />
         <KpiCard
-          label="Net Contribution Improvement"
-          value={dr ? `+$${dr.net_economic_delta_usd}` : undefined}
+          label="Net Economic Improvement"
+          value={hasRunRecovery ? `+$${netDeltaUsd.toFixed(2)}` : undefined}
           sub="Protected vs. unmitigated stall"
-          color="text-emerald-300"
+          color="text-emerald-800"
           icon={TrendingUp}
         />
         <KpiCard
           label="Customer Promise Adherence"
-          value={hasRunRecovery ? `${onTimeCount} / ${MOCK_REPAIR_ORDERS.length} (83%)` : `4 / 6 (67%)`}
-          sub={hasRunRecovery ? "RO-104 protected on-time" : "RO-104 threatened by delay"}
-          color="text-purple-300"
+          value={hasRunRecovery ? `${onTimeCount} / ${MOCK_REPAIR_ORDERS.length} (67%)` : `3 / 6 (50%)`}
+          sub={hasRunRecovery ? "RO-104 on-time; RO-106 rescued into overtime" : "RO-104 delayed; RO-106 bay starved"}
+          color="text-stone-900"
           icon={CheckCircle2}
           placeholder="Always available"
         />
       </div>
 
       {/* Bay Utilization & Avoided Idle Hours */}
-      <div className="bg-[#121624] border border-[#1e2638] rounded-xl p-5 shadow-xl space-y-4">
-        <div className="flex items-center justify-between">
+      <div className="bg-white border border-[#e5dfd5] rounded-lg p-5 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-[#eee8df] pb-3">
           <div className="flex items-center gap-2">
-            <Warehouse className="w-4 h-4 text-amber-400" />
-            <h3 className="text-sm font-bold text-white">Physical Service-Bay Efficiency</h3>
+            <Warehouse className="w-4 h-4 text-stone-600" />
+            <h3 className="text-sm font-semibold text-stone-900">Physical Service-Bay Utilization</h3>
           </div>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+          <span className="text-xs font-medium px-2 py-0.5 rounded bg-[#f5f1e8] text-stone-700 border border-[#ded7c8]">
             BAY-01 Heavy Diagnostic Lift
           </span>
         </div>
 
         {hasRunRecovery && dr ? (
           <div className="space-y-4">
-            {/* BAY-01 utilization bar */}
+            {/* BAY-01 Utilization Bar */}
             <div>
               <div className="flex justify-between items-center mb-1.5 text-xs">
-                <span className="text-slate-300 font-mono font-medium">BAY-01 Active Working Utilization</span>
-                <span className="text-cyan-300 font-mono font-bold">
+                <span className="text-stone-700 font-medium">BAY-01 Active Working Utilization</span>
+                <span className="font-mono font-bold text-stone-900">
                   {dr.proposed_bay_utilization_pct.toFixed(1)}%
-                  <span className="text-emerald-400 ml-1.5">(+{dr.delta_bay_utilization_pct.toFixed(1)}% recovered)</span>
+                  <span className="text-emerald-800 ml-1.5">(+{dr.delta_bay_utilization_pct.toFixed(1)}% recovered)</span>
                 </span>
               </div>
-              <div className="h-3.5 bg-[#0d101a] rounded-full overflow-hidden border border-[#1b2234]">
+              <div className="h-3 bg-[#f0ebe0] rounded-full overflow-hidden border border-[#ded7c8]">
                 <div
-                  className="h-full bg-gradient-to-r from-cyan-600 via-cyan-500 to-emerald-400 rounded-full transition-all duration-700"
+                  className="h-full bg-stone-900 rounded-full transition-all duration-700"
                   style={{ width: `${Math.min(dr.proposed_bay_utilization_pct, 100)}%` }}
                 />
               </div>
-              <div className="flex justify-between text-[10px] text-slate-500 mt-1 font-mono">
+              <div className="flex justify-between text-[11px] text-stone-500 mt-1.5 font-mono">
                 <span>Baseline unmitigated: {dr.baseline_bay_utilization_pct.toFixed(1)}%</span>
                 <span>Optimized dispatch: {dr.proposed_bay_utilization_pct.toFixed(1)}%</span>
               </div>
             </div>
 
-            {/* Capacity relief breakdown */}
+            {/* Capacity Relief Breakdown */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              <div className="p-3 bg-[#0d101a] border border-[#1b2234] rounded-lg flex items-center justify-between text-xs">
+              <div className="p-3.5 bg-[#faf8f5] border border-[#e5dfd5] rounded-md flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  <Clock className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-slate-300">Dead Lift Idle Time Avoided</span>
+                  <Clock className="w-4 h-4 text-emerald-600" />
+                  <span className="text-stone-700 font-medium">Dead Lift Idle Time Avoided</span>
                 </div>
-                <span className="font-mono font-bold text-emerald-300">{dr.delta_idle_minutes} minutes freed</span>
+                <span className="font-mono font-bold text-emerald-800 text-sm">{dr.delta_idle_minutes} minutes freed</span>
               </div>
 
-              <div className="p-3 bg-[#0d101a] border border-[#1b2234] rounded-lg flex items-center justify-between text-xs">
+              <div className="p-3.5 bg-[#faf8f5] border border-[#e5dfd5] rounded-md flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
-                  <span className="text-slate-300">Downstream RO-106 Unblocked</span>
+                  <ShieldCheck className="w-4 h-4 text-stone-700" />
+                  <span className="text-stone-700 font-medium">Downstream RO-106 Unblocked</span>
                 </div>
-                <span className="font-mono font-bold text-cyan-300">Admitted to BAY-01</span>
+                <span className="font-medium text-stone-900">Admitted to BAY-01</span>
               </div>
             </div>
           </div>
         ) : (
-          <div className="text-xs text-slate-400 italic p-4 bg-[#0d101a] rounded-lg border border-[#1b2234] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="text-xs text-stone-500 italic p-4 bg-[#faf8f5] rounded-md border border-[#e5dfd5] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <span>Utilization and avoided idle time will populate once the Economic Optimizer runs in Recovery Decisions.</span>
             <button
               onClick={() => setActiveSection(3)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-900/60 hover:bg-purple-800 text-purple-200 border border-purple-700 rounded text-xs font-medium transition-colors shrink-0 self-start sm:self-auto"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-[#faf7f0] text-stone-800 border border-[#ded7c8] rounded-md text-xs font-medium shadow-xs transition-colors shrink-0 self-start sm:self-auto"
             >
               <span>Run Optimizer</span>
               <ArrowRight className="w-3 h-3" />
@@ -199,50 +231,59 @@ export const PerformanceView: React.FC = () => {
         )}
       </div>
 
-      {/* RO Summary Table */}
-      <div className="bg-[#121624] border border-[#1e2638] rounded-xl shadow-xl overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-[#1e2638]">
-          <h3 className="text-sm font-bold text-white">Full-Shop Delivery Outcome Ledger</h3>
-          <p className="text-xs text-slate-400">Final delivery promise status across all 6 active repair orders.</p>
+      {/* Repair Order Delivery Outcome Ledger Table */}
+      <div className="bg-white border border-[#e5dfd5] rounded-lg shadow-xs overflow-hidden">
+        <div className="px-5 py-4 border-b border-[#e5dfd5] bg-[#faf8f5]">
+          <h3 className="text-sm font-semibold text-stone-900">Full-Shop Delivery Outcome Ledger</h3>
+          <p className="text-xs text-stone-500">Final customer delivery promise status across all 6 active repair orders.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-[#1e2638] bg-[#0d111a]/60">
-                <th className="text-left px-4 py-2.5 font-mono uppercase text-[10px] text-slate-500 tracking-wider">RO ID</th>
-                <th className="text-left px-4 py-2.5 font-mono uppercase text-[10px] text-slate-500 tracking-wider">Customer</th>
-                <th className="text-left px-4 py-2.5 font-mono uppercase text-[10px] text-slate-500 tracking-wider">Promise Time</th>
-                <th className="text-left px-4 py-2.5 font-mono uppercase text-[10px] text-slate-500 tracking-wider">Labor Value</th>
-                <th className="text-left px-4 py-2.5 font-mono uppercase text-[10px] text-slate-500 tracking-wider">Dispatch Outcome</th>
+              <tr className="border-b border-[#e5dfd5] bg-[#f5f1e8] text-stone-700 font-semibold text-left">
+                <th className="px-4 py-3">Order ID</th>
+                <th className="px-4 py-3">Customer</th>
+                <th className="px-4 py-3">Promised Delivery</th>
+                <th className="px-4 py-3">Labor Value</th>
+                <th className="px-4 py-3">Dispatch Outcome</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#1b2234]">
+            <tbody className="divide-y divide-[#eee8df]">
               {MOCK_REPAIR_ORDERS.map((ro) => {
-                const isRo104 = ro.roId === 'RO-104';
                 return (
-                  <tr key={ro.roId} className="hover:bg-[#111926] transition-colors">
-                    <td className="px-4 py-3 font-mono font-bold text-cyan-300">{ro.roId}</td>
-                    <td className="px-4 py-3 text-slate-200">{ro.customerName}</td>
-                    <td className="px-4 py-3 font-mono text-slate-300">{ro.promisedDelivery}</td>
-                    <td className="px-4 py-3 font-mono text-emerald-300">${ro.laborGrossUsd.toFixed(2)}</td>
+                  <tr key={ro.roId} className="hover:bg-[#faf8f5] transition-colors">
+                    <td className="px-4 py-3 font-mono font-bold text-stone-900">{ro.roId}</td>
+                    <td className="px-4 py-3 text-stone-800">{ro.customerName}</td>
+                    <td className="px-4 py-3 font-mono font-medium text-stone-700">{ro.promisedDelivery}</td>
+                    <td className="px-4 py-3 font-mono font-semibold text-stone-900">${ro.laborGrossUsd.toFixed(2)}</td>
                     <td className="px-4 py-3">
-                      {isRo104 ? (
+                      {ro.roId === 'RO-104' ? (
                         hasRunRecovery ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950 text-emerald-300 border border-emerald-800">
-                            <CheckCircle2 className="w-2.5 h-2.5" /> Protected On-Time (Hotshot S1)
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Protected On-Time ({supplierName.includes('Hotshot') ? 'Hotshot S1' : supplierName})
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-950 text-amber-300 border border-amber-800">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200">
                             At Risk (Awaiting Sourcing Decision)
                           </span>
                         )
-                      ) : ro.readinessStatus === 'READY' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950 text-emerald-300 border border-emerald-800">
-                          <CheckCircle2 className="w-2.5 h-2.5" /> Delivered On-Time
+                      ) : ro.roId === 'RO-106' ? (
+                        hasRunRecovery ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Admitted to BAY-01 (Rescued in Overtime)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200">
+                            In Holding (Awaiting Heavy Lift BAY-01)
+                          </span>
+                        )
+                      ) : ro.roId === 'RO-105' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200">
+                          Blocked — National Backorder (HV Harness)
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-rose-300 border border-slate-700">
-                          Awaiting National Part ETA
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-200">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Delivered On-Time
                         </span>
                       )}
                     </td>

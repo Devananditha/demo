@@ -185,7 +185,7 @@ class RecoveryReplanningPipeline:
 
             alt = RecoveryAlternative(
                 option_id=candidate.option_id,
-                plan_id=plan_id,
+                plan_id=cand_res.plan_id,
                 sourcing_candidate=candidate,
                 schedule_result=cand_res,
                 gross_contribution_usd=gross_contrib,
