@@ -64,8 +64,8 @@ export const STAGES: StageInfo[] = [
     id: 7,
     name: 'Executive Outcome Dashboard',
     shortLabel: '7. Outcome Ledger',
-    status: 'upcoming',
-    description: 'Before-vs-after financial and operational reconciliation with verifiable net yield delta.',
+    status: 'active',
+    description: 'Executive synthesis of constraint-aware economic intelligence, bay shadow pricing, and audit status.',
   },
 ];
 

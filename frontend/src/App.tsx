@@ -7,6 +7,7 @@ import { BaselineCapacityBoard } from './pages/BaselineCapacityBoard';
 import { DisruptionAlert } from './pages/DisruptionAlert';
 import { SourcingRecoveryComparison } from './pages/SourcingRecoveryComparison';
 import { VerificationGate } from './pages/VerificationGate';
+import { ExecutiveOutcomeDashboard } from './pages/ExecutiveOutcomeDashboard';
 import { STAGES } from './data/mockData';
 import { Layers, ArrowRight, ShieldAlert } from 'lucide-react';
 
@@ -37,6 +38,8 @@ export const App: React.FC = () => {
           <SourcingRecoveryComparison onSelectStage={setActiveStage} />
         ) : activeStage === 6 ? (
           <VerificationGate onSelectStage={setActiveStage} />
+        ) : activeStage === 7 ? (
+          <ExecutiveOutcomeDashboard onSelectStage={setActiveStage} />
         ) : (
           <div className="bg-sy-card border border-sy-border rounded-lg p-12 text-center space-y-4 shadow-xl">
             <div className="mx-auto w-12 h-12 rounded-full bg-sy-elevated border border-sy-border flex items-center justify-center text-sy-accent">
@@ -55,7 +58,7 @@ export const App: React.FC = () => {
             </div>
             <p className="text-xs text-slate-500 max-w-md mx-auto pt-2 border-t border-sy-border/50">
               This stage is scheduled for implementation in subsequent Decision Replay steps.
-              Return to Stage 1 for Workshop Control Tower, Stage 2 for Readiness & Risk, Stage 3 for Baseline Capacity Board, Stage 4 for Disruption Alert, Stage 5 for Sourcing Comparison, or Stage 6 for Verification Gate.
+              Return to Stage 1 for Workshop Control Tower, Stage 2 for Readiness & Risk, Stage 3 for Baseline Capacity Board, Stage 4 for Disruption Alert, Stage 5 for Sourcing Comparison, Stage 6 for Verification Gate, or Stage 7 for Executive Dashboard.
             </p>
             <div className="pt-2 flex flex-wrap justify-center gap-3">
               <button
@@ -98,6 +101,13 @@ export const App: React.FC = () => {
                 className="inline-flex items-center space-x-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-md border border-slate-700 transition-colors"
               >
                 <span>Stage 6 Verification Gate</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setActiveStage(7)}
+                className="inline-flex items-center space-x-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-md border border-slate-700 transition-colors"
+              >
+                <span>Stage 7 Executive Dashboard</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
