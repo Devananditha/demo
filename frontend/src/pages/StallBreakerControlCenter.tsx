@@ -124,7 +124,11 @@ export const StallBreakerControlCenter: React.FC<StallBreakerControlCenterProps>
     setActionLoading(true);
     setError(null);
     try {
-      const eventIdToRecover = activeAnalysis?.event_id || events[events.length - 1]?.event_id || 'EVT-CANONICAL-INIT';
+      const eventIdToRecover = activeAnalysis?.event_id || events[events.length - 1]?.event_id;
+      if (!eventIdToRecover) {
+        setError('No active disruption event found. Please ingest or simulate an event first.');
+        return;
+      }
       const report = await fetchStallBreakerRecovery(eventIdToRecover);
       setRecoveryReport(report);
     } catch (err: unknown) {

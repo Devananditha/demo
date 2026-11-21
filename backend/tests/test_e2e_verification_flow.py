@@ -36,6 +36,7 @@ from app.stallbreaker import (
     EventIngestRequest,
     EventType,
     StallBreakerEventStore,
+    StoredEvent,
     compute_hmac_sha256,
     stallbreaker_event_store,
 )
@@ -132,12 +133,30 @@ class TestE2EVerificationFlow:
         """3 & 4: Recovery plan is certified by L4 Oracle; Decision Replay diff and explainability recorded."""
         snap = get_live_snapshot()
 
+        # Explicitly create and record disruption event in event store
+        event_id = f"EVT-E2E-REC-{uuid.uuid4().hex[:8]}"
+        now = datetime.now(timezone.utc)
+        evt = StoredEvent(
+            event_id=event_id,
+            rooftop_id=snap.rooftop.rooftop_id,
+            event_type=EventType.PARTS_ETA_CHANGED,
+            entity_type="PART_REQUIREMENT",
+            entity_id="PART-REQ-104-SOLENOID",
+            payload={"delay_minutes": 180, "new_ready_tick": 198},
+            occurred_at=now,
+            ingested_at=now,
+            snapshot_hash_before=snap.snapshot_hash or "",
+            snapshot_hash_after=snap.snapshot_hash or "",
+        )
+        stallbreaker_event_store.record_event(evt)
+
         rec_resp = client.post(
             "/api/v1/stallbreaker/recovery-recommendations",
-            json={"allow_emergency_overtime": True},
+            json={"event_id": event_id, "allow_emergency_overtime": True},
         )
         assert rec_resp.status_code == 200
         rec_data = rec_resp.json()
+        assert rec_data["event_id"] == event_id
         assert rec_data["is_recovery_feasible"] is True
 
         # Property 3: Verify plan is certified by L4 sweep-line oracle in replan report

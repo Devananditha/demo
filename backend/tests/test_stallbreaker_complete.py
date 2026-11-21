@@ -352,16 +352,81 @@ class TestStallBreakerFastAPIEndpoints:
         assert "BAY-01" in data["affected_bay_ids"]
 
     def test_api_stallbreaker_recovery_recommendations(self, client: TestClient):
+        payload = {"part_req_id": "PART-REQ-104-SOLENOID", "new_ready_tick": 198, "delay_minutes": 180}
+        sig = compute_hmac_sha256(payload)
+        client.post(
+            "/api/v1/stallbreaker/events",
+            json={
+                "event_id": "EVT-REC-API-01",
+                "rooftop_id": "ROOF-01",
+                "event_type": "PARTS_ETA_CHANGED",
+                "entity_type": "PART_REQUIREMENT",
+                "entity_id": "PART-REQ-104-SOLENOID",
+                "payload": payload,
+                "signature": sig,
+            },
+        )
         resp = client.post(
             "/api/v1/stallbreaker/recovery-recommendations",
-            json={"allow_emergency_overtime": True},
+            json={"event_id": "EVT-REC-API-01", "allow_emergency_overtime": True},
         )
         assert resp.status_code == 200
         data = resp.json()
+        assert data["event_id"] == "EVT-REC-API-01"
         assert data["is_recovery_feasible"] is True
         assert data["recommended_action"]["action_id"] == "ACT-EXPEDITE-S1"
         assert data["decision_replay"] is not None
         assert float(data["decision_replay"]["net_economic_delta_usd"]) > 0.0
+
+    def test_api_recovery_recommendations_missing_event_id_returns_400(self, client: TestClient):
+        # Missing event_id field returns 400
+        resp = client.post(
+            "/api/v1/stallbreaker/recovery-recommendations",
+            json={"allow_emergency_overtime": True},
+        )
+        assert resp.status_code == 400
+        assert "event_id" in resp.json()["detail"]
+
+        # Blank/whitespace event_id returns 400
+        resp_empty = client.post(
+            "/api/v1/stallbreaker/recovery-recommendations",
+            json={"event_id": "   ", "allow_emergency_overtime": True},
+        )
+        assert resp_empty.status_code == 400
+
+    def test_api_recovery_recommendations_unknown_event_id_returns_404(self, client: TestClient):
+        resp = client.post(
+            "/api/v1/stallbreaker/recovery-recommendations",
+            json={"event_id": "EVT-DOES-NOT-EXIST-404", "allow_emergency_overtime": True},
+        )
+        assert resp.status_code == 404
+        assert "not found" in resp.json()["detail"].lower()
+
+    def test_api_recovery_recommendations_rooftop_mismatch_returns_404(self, client: TestClient):
+        payload = {"part_req_id": "PART-REQ-104-SOLENOID", "new_ready_tick": 198}
+        sig = compute_hmac_sha256(payload)
+        client.post(
+            "/api/v1/stallbreaker/events",
+            json={
+                "event_id": "EVT-ISOLATION-01",
+                "rooftop_id": "ROOF-01",
+                "event_type": "PARTS_ETA_CHANGED",
+                "entity_type": "PART_REQUIREMENT",
+                "entity_id": "PART-REQ-104-SOLENOID",
+                "payload": payload,
+                "signature": sig,
+            },
+        )
+        # Query with wrong rooftop_id in request
+        resp = client.post(
+            "/api/v1/stallbreaker/recovery-recommendations",
+            json={
+                "event_id": "EVT-ISOLATION-01",
+                "rooftop_id": "ROOF-UNKNOWN",
+                "allow_emergency_overtime": True,
+            },
+        )
+        assert resp.status_code == 404
 
     def test_api_stallbreaker_approval_and_commit(self, client: TestClient, canonical_snapshot: DealershipSnapshotSchema):
         resp = client.post(

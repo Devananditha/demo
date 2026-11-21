@@ -158,6 +158,7 @@ class DisruptionAnalysisRequest(BaseModel):
 class RecoveryRecommendationsRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     event_id: Optional[str] = Field(default=None, description="Triggering event identifier")
+    rooftop_id: Optional[str] = Field(default=None, description="Optional rooftop identifier")
     allow_emergency_overtime: bool = Field(default=True, description="Authorize emergency overtime for recovery")
 
 
@@ -637,26 +638,33 @@ def analyze_stallbreaker_disruption(request: DisruptionAnalysisRequest) -> Stall
 )
 def get_recovery_recommendations(request: RecoveryRecommendationsRequest) -> StallBreakerRecoveryReport:
     """Generates feasible recovery actions, executes CP-SAT re-solve, and computes Decision Replay."""
-    event = None
-    if request.event_id:
-        event = stallbreaker_event_store.get_event(request.event_id)
-
-    if not event:
-        now = REFERENCE_EVAL_TIME_UTC
-        event = StoredEvent(
-            event_id=request.event_id or f"EVT-CANONICAL-{int(now.timestamp())}",
-            rooftop_id="ROOF-01",
-            event_type=EventType.PARTS_ETA_CHANGED,
-            entity_type="PART_REQUIREMENT",
-            entity_id="PART-REQ-104-SOLENOID",
-            payload={"delay_minutes": 180, "new_ready_tick": 198},
-            occurred_at=now,
-            ingested_at=now,
-            snapshot_hash_before="",
-            snapshot_hash_after="",
+    if not request.event_id or not request.event_id.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Active event-driven recovery request must contain a non-empty 'event_id'.",
         )
 
     snap = get_live_snapshot()
+
+    if request.rooftop_id and request.rooftop_id != snap.rooftop.rooftop_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Rooftop '{request.rooftop_id}' not found.",
+        )
+
+    event = stallbreaker_event_store.get_event(request.event_id)
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Disruption event '{request.event_id}' not found in event store.",
+        )
+
+    if event.rooftop_id != snap.rooftop.rooftop_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Disruption event '{request.event_id}' belongs to rooftop '{event.rooftop_id}', not active rooftop '{snap.rooftop.rooftop_id}'.",
+        )
+
     report = stallbreaker_engine.generate_recovery_recommendations(
         snapshot=snap,
         event=event,
