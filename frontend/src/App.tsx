@@ -8,6 +8,7 @@ import { DisruptionAlert } from './pages/DisruptionAlert';
 import { SourcingRecoveryComparison } from './pages/SourcingRecoveryComparison';
 import { VerificationGate } from './pages/VerificationGate';
 import { ExecutiveOutcomeDashboard } from './pages/ExecutiveOutcomeDashboard';
+import { StallBreakerControlCenter } from './pages/StallBreakerControlCenter';
 import { STAGES } from './data/mockData';
 import { Layers, ArrowRight, ShieldAlert } from 'lucide-react';
 
@@ -40,6 +41,8 @@ export const App: React.FC = () => {
           <VerificationGate onSelectStage={setActiveStage} />
         ) : activeStage === 7 ? (
           <ExecutiveOutcomeDashboard onSelectStage={setActiveStage} />
+        ) : activeStage === 8 ? (
+          <StallBreakerControlCenter onSelectStage={setActiveStage} />
         ) : (
           <div className="bg-sy-card border border-sy-border rounded-lg p-12 text-center space-y-4 shadow-xl">
             <div className="mx-auto w-12 h-12 rounded-full bg-sy-elevated border border-sy-border flex items-center justify-center text-sy-accent">

@@ -34,9 +34,23 @@ from app.recover.models import (
 from app.recover.replan import RecoveryReplanningPipeline
 from app.replay.engine import replay_engine
 from app.replay.models import DecisionReplayRecord
-from app.schemas.domain import EconomicParametersSchema
+from app.schemas.domain import DealershipSnapshotSchema, EconomicParametersSchema
 from app.verifier.models import CandidateSchedulePlan, VerificationResult
 from app.verifier.sweep_oracle import SweepLineOracle
+from app.stallbreaker import (
+    DealershipStateMutator,
+    EventIngestRequest,
+    EventIngestResponse,
+    EventType,
+    StallBreakerApprovalRequest,
+    StallBreakerDisruptionAnalysis,
+    StallBreakerRecoveryReport,
+    StoredEvent,
+    stallbreaker_approval_gateway,
+    stallbreaker_engine,
+    stallbreaker_event_store,
+    verify_hmac_sha256,
+)
 
 # Reference Evaluation Timestamp for S-MATH-01 Fixture
 REFERENCE_EVAL_TIME_UTC = datetime(2026, 11, 18, 13, 15, 0, tzinfo=timezone.utc)
@@ -133,8 +147,32 @@ class VerificationRequest(BaseModel):
     plan: CandidateSchedulePlan = Field(..., description="Candidate schedule plan to independently audit")
 
 
+class DisruptionAnalysisRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    event_id: str = Field(..., min_length=1, description="Target event ID to analyze")
+    plan: Optional[CandidateSchedulePlan] = Field(default=None, description="Optional active schedule plan to audit")
+
+
+class RecoveryRecommendationsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    event_id: Optional[str] = Field(default=None, description="Triggering event identifier")
+    allow_emergency_overtime: bool = Field(default=True, description="Authorize emergency overtime for recovery")
+
+
 # Authority commit gateway singleton
 _authority_gateway = AuthorityCommitGateway()
+
+# Module-level live snapshot mutable state
+_live_snapshot: DealershipSnapshotSchema = load_fixture_data()
+
+def get_live_snapshot() -> DealershipSnapshotSchema:
+    global _live_snapshot
+    return _live_snapshot
+
+def reset_live_snapshot() -> DealershipSnapshotSchema:
+    global _live_snapshot
+    _live_snapshot = load_fixture_data()
+    return _live_snapshot
 
 
 # ============================================================================
@@ -398,6 +436,244 @@ def commit_plan(request: CommitRequest) -> CommitResult:
         current_snapshot=snapshot,
         candidate_alternative=recommended,
         approval=approval,
+        evaluation_time_utc=REFERENCE_EVAL_TIME_UTC,
+    )
+    return result
+
+
+# ============================================================================
+# STALLBREAKER EVENT-DRIVEN DISRUPTION & RECOVERY ENDPOINTS
+# ============================================================================
+
+@app.post(
+    "/api/v1/stallbreaker/events",
+    response_model=EventIngestResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def ingest_stallbreaker_event(request: EventIngestRequest) -> EventIngestResponse:
+    """Ingests, validates, and applies domain events with HMAC verification and idempotency."""
+    global _live_snapshot
+
+    # 1. Cryptographic HMAC-SHA256 signature verification (if provided)
+    if request.signature:
+        if not verify_hmac_sha256(request.payload, request.signature):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid HMAC-SHA256 event signature.",
+            )
+
+    # 2. Check Idempotency via Event Store
+    existing_event = stallbreaker_event_store.get_event(request.event_id)
+    if existing_event:
+        return EventIngestResponse(
+            status="DUPLICATE_IGNORED",
+            event_id=existing_event.event_id,
+            is_duplicate=True,
+            previous_snapshot_hash=existing_event.snapshot_hash_before,
+            new_snapshot_hash=existing_event.snapshot_hash_after,
+            requires_recovery=False,
+            disruption_summary="Event already ingested. State mutation bypassed (idempotent).",
+        )
+
+    # 3. OCC Expected Hash Check (if specified)
+    if request.expected_snapshot_hash and request.expected_snapshot_hash != _live_snapshot.snapshot_hash:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"OCC conflict: expected '{request.expected_snapshot_hash}', actual '{_live_snapshot.snapshot_hash}'.",
+        )
+
+    hash_before = _live_snapshot.snapshot_hash or ""
+
+    # 4. Apply State Transition
+    try:
+        mutated_snap, requires_recovery, disruption_summary = DealershipStateMutator.apply_event(
+            _live_snapshot, request
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"State transition error: {str(exc)}",
+        )
+
+    hash_after = mutated_snap.snapshot_hash or ""
+    _live_snapshot = mutated_snap
+
+    # 5. Record Event in Persistence Store
+    now = datetime.now(timezone.utc)
+    stored = StoredEvent(
+        event_id=request.event_id,
+        rooftop_id=request.rooftop_id,
+        event_type=request.event_type,
+        entity_type=request.entity_type,
+        entity_id=request.entity_id,
+        payload=request.payload,
+        occurred_at=request.occurred_at or now,
+        ingested_at=now,
+        signature=request.signature,
+        snapshot_hash_before=hash_before,
+        snapshot_hash_after=hash_after,
+    )
+    stallbreaker_event_store.record_event(stored)
+
+    return EventIngestResponse(
+        status="ACCEPTED",
+        event_id=request.event_id,
+        is_duplicate=False,
+        previous_snapshot_hash=hash_before,
+        new_snapshot_hash=hash_after,
+        requires_recovery=requires_recovery,
+        disruption_summary=disruption_summary,
+        ingested_at=now,
+    )
+
+
+@app.get(
+    "/api/v1/stallbreaker/events",
+    response_model=List[StoredEvent],
+    status_code=status.HTTP_200_OK,
+)
+def list_stallbreaker_events() -> List[StoredEvent]:
+    """Retrieves all persisted events from the append-only StallBreaker audit ledger."""
+    return stallbreaker_event_store.list_events()
+
+
+@app.get(
+    "/api/v1/stallbreaker/state",
+    response_model=DealershipStateResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_stallbreaker_live_state() -> DealershipStateResponse:
+    """Returns the current active (mutated) dealership operational state."""
+    snap = get_live_snapshot()
+    ro_items = [
+        RepairOrderStateItem(
+            ro_id=ro.ro_id,
+            status=ro.status.value if hasattr(ro.status, "value") else str(ro.status),
+            physical_state=ro.physical_state.value if hasattr(ro.physical_state, "value") else str(ro.physical_state),
+            assigned_bay_id=ro.assigned_bay_id,
+            promise_tick=ro.promise_tick,
+        )
+        for ro in snap.repair_orders
+    ]
+    return DealershipStateResponse(
+        rooftop_id=snap.rooftop.rooftop_id,
+        snapshot_hash=snap.snapshot_hash or "",
+        evaluation_tick=REFERENCE_CURRENT_TICK,
+        operating_day_end_tick=snap.rooftop.operating_day_end_tick,
+        overtime_cutoff_tick=snap.rooftop.overtime_cutoff_tick,
+        repair_orders=ro_items,
+    )
+
+
+@app.post(
+    "/api/v1/stallbreaker/disruption-analysis",
+    response_model=StallBreakerDisruptionAnalysis,
+    status_code=status.HTTP_200_OK,
+)
+def analyze_stallbreaker_disruption(request: DisruptionAnalysisRequest) -> StallBreakerDisruptionAnalysis:
+    """Evaluates the consequences of an event on shop capacity and active schedules."""
+    event = stallbreaker_event_store.get_event(request.event_id)
+    if not event:
+        event = StoredEvent(
+            event_id=request.event_id,
+            rooftop_id="ROOF-01",
+            event_type=EventType.PARTS_ETA_CHANGED,
+            entity_type="PART_REQUIREMENT",
+            entity_id="PART-REQ-104-SOLENOID",
+            payload={"delay_minutes": 180, "new_eta_tick": 198},
+            occurred_at=REFERENCE_EVAL_TIME_UTC,
+            ingested_at=REFERENCE_EVAL_TIME_UTC,
+            snapshot_hash_before="",
+            snapshot_hash_after="",
+        )
+
+    snap = get_live_snapshot()
+    analysis = stallbreaker_engine.analyze_disruption(snap, event, current_schedule=request.plan)
+    return analysis
+
+
+@app.post(
+    "/api/v1/stallbreaker/recovery-recommendations",
+    response_model=StallBreakerRecoveryReport,
+    status_code=status.HTTP_200_OK,
+)
+def get_recovery_recommendations(request: RecoveryRecommendationsRequest) -> StallBreakerRecoveryReport:
+    """Generates feasible recovery actions, executes CP-SAT re-solve, and computes Decision Replay."""
+    event = None
+    if request.event_id:
+        event = stallbreaker_event_store.get_event(request.event_id)
+
+    if not event:
+        now = REFERENCE_EVAL_TIME_UTC
+        event = StoredEvent(
+            event_id=request.event_id or f"EVT-CANONICAL-{int(now.timestamp())}",
+            rooftop_id="ROOF-01",
+            event_type=EventType.PARTS_ETA_CHANGED,
+            entity_type="PART_REQUIREMENT",
+            entity_id="PART-REQ-104-SOLENOID",
+            payload={"delay_minutes": 180, "new_ready_tick": 198},
+            occurred_at=now,
+            ingested_at=now,
+            snapshot_hash_before="",
+            snapshot_hash_after="",
+        )
+
+    snap = get_live_snapshot()
+    report = stallbreaker_engine.generate_recovery_recommendations(
+        snapshot=snap,
+        event=event,
+        allow_emergency_overtime=request.allow_emergency_overtime,
+        evaluation_time_utc=REFERENCE_EVAL_TIME_UTC,
+    )
+    return report
+
+
+@app.get(
+    "/api/v1/stallbreaker/replay/{replay_id}",
+    response_model=DecisionReplayRecord,
+    status_code=status.HTTP_200_OK,
+)
+def get_stallbreaker_replay_record(replay_id: str) -> DecisionReplayRecord:
+    """Retrieves a specific Decision Replay record by its identifier."""
+    record = replay_engine.get_record(replay_id)
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Decision Replay record '{replay_id}' not found.",
+        )
+    return record
+
+
+@app.post(
+    "/api/v1/stallbreaker/approve",
+    response_model=CommitResult,
+    status_code=status.HTTP_200_OK,
+)
+def approve_stallbreaker_recovery(request: StallBreakerApprovalRequest) -> CommitResult:
+    """Version-bound manager approval with OCC fresh-state revalidation and outbox dispatch."""
+    snap = get_live_snapshot()
+
+    # Re-run recovery replan to get candidate alternative
+    replan_report = recover_replan(
+        RecoveryReplanRequest(
+            rooftop_id=snap.rooftop.rooftop_id,
+            snapshot_hash=snap.snapshot_hash or "",
+        )
+    )
+    candidate = next((a for a in replan_report.alternatives if a.plan_id == request.plan_id), None)
+    if not candidate and replan_report.alternatives:
+        candidate = replan_report.alternatives[0]
+
+    if not candidate:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Recovery plan '{request.plan_id}' not found or no candidate available.",
+        )
+
+    result = stallbreaker_approval_gateway.process_approval(
+        request=request,
+        current_snapshot=snap,
+        candidate_alternative=candidate,
         evaluation_time_utc=REFERENCE_EVAL_TIME_UTC,
     )
     return result
