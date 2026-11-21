@@ -8,6 +8,7 @@ Authoritative Reference:
 """
 
 from decimal import Decimal
+from typing import Any, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -53,3 +54,27 @@ class OptimiseConfig(BaseModel):
     overtime_cutoff_tick: int = Field(default=228, ge=0, le=288, description="19:00 PM authorized overtime limit")
     allow_emergency_overtime: bool = Field(default=False, description="Authorize dispatch beyond technician shift end")
     enable_t1_warm_start: bool = Field(default=True, description="Feed T1 constructive solution as hint to CP-SAT")
+
+    @classmethod
+    def from_economic_parameters(
+        cls,
+        params: Optional[Any] = None,
+        **kwargs,
+    ) -> "OptimiseConfig":
+        """Instantiates OptimiseConfig using values from an EconomicParametersSchema instance if provided."""
+        if params is None:
+            return cls(**kwargs)
+        
+        extracted = {}
+        for field in [
+            "labor_contribution_per_hour_usd",
+            "lateness_penalty_per_minute_usd",
+            "blocked_bay_penalty_per_minute_usd",
+            "churn_penalty_per_move_usd",
+            "freight_approval_threshold_usd",
+        ]:
+            if hasattr(params, field) and getattr(params, field) is not None:
+                extracted[field] = getattr(params, field)
+        
+        extracted.update(kwargs)
+        return cls(**extracted)

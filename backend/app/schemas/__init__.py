@@ -3,6 +3,7 @@ from app.schemas.domain import (
     BaySchema,
     BayType,
     DealershipSnapshotSchema,
+    EconomicParametersSchema,
     PartInventoryStatus,
     PartRequirementSchema,
     QuoteStatus,
@@ -13,6 +14,7 @@ from app.schemas.domain import (
     SupplierOfferSchema,
     TaskSchema,
     TaskStatus,
+    TechnicianSchema,
     VehiclePhysicalState,
 )
 
@@ -31,5 +33,6 @@ __all__ = [
     "TaskSchema",
     "PartRequirementSchema",
     "SupplierOfferSchema",
+    "EconomicParametersSchema",
     "DealershipSnapshotSchema",
 ]

@@ -244,6 +244,35 @@ class SupplierOfferSchema(CanonicalBaseModel):
 # CANONICAL DEALERSHIP SNAPSHOT SCHEMA
 # ============================================================================
 
+class EconomicParametersSchema(CanonicalBaseModel):
+    """Synthetic economic parameters governing shop-floor optimization and recovery."""
+    labor_contribution_per_hour_usd: Decimal = Field(
+        default=Decimal("120.00"),
+        ge=Decimal("0.00"),
+        description="A3 baseline: gross labor contribution margin per hour sold ($/hr)",
+    )
+    lateness_penalty_per_minute_usd: Decimal = Field(
+        default=Decimal("0.50"),
+        ge=Decimal("0.00"),
+        description="S-MATH-01 parameter: delivery commitment delay penalty ($/min)",
+    )
+    blocked_bay_penalty_per_minute_usd: Decimal = Field(
+        default=Decimal("0.00"),
+        ge=Decimal("0.00"),
+        description="Opportunity cost penalty for holding bay capacity idle ($/min)",
+    )
+    churn_penalty_per_move_usd: Decimal = Field(
+        default=Decimal("0.00"),
+        ge=Decimal("0.00"),
+        description="Schedule perturbation friction cost ($/reassignment)",
+    )
+    freight_approval_threshold_usd: Decimal = Field(
+        default=Decimal("50.00"),
+        ge=Decimal("0.00"),
+        description="Threshold requiring manager signoff under constraint C7",
+    )
+
+
 class DealershipSnapshotSchema(CanonicalBaseModel):
     """Full relational snapshot of a dealership's fixed operations state."""
     rooftop: RooftopSchema
@@ -253,6 +282,7 @@ class DealershipSnapshotSchema(CanonicalBaseModel):
     tasks: List[TaskSchema] = Field(..., min_length=1)
     part_requirements: List[PartRequirementSchema] = Field(default_factory=list)
     supplier_offers: List[SupplierOfferSchema] = Field(default_factory=list)
+    economic_parameters: Optional[EconomicParametersSchema] = Field(default=None, description="Configured shop-floor economic parameters")
     metadata: Dict[str, Any] = Field(default_factory=dict)
     snapshot_hash: Optional[str] = Field(default=None, description="SHA-256 state snapshot integrity hash")
 
