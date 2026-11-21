@@ -24,6 +24,7 @@ import threading
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 import uuid
 
+from app.optimise import compute_net_economic_objective
 from app.optimise.models import ScheduleResult
 from app.replay.models import (
     DecisionExplainability,
@@ -70,7 +71,13 @@ class DecisionReplayEngine:
 
         # Net Economic Delta
         base_net = base_metrics.net_objective_usd
-        prop_net = (prop_gross - prop_metrics.lateness_penalty_usd - freight - (prop_metrics.bay_blocked_penalty_usd or Decimal("0.00")) - churn_cost).quantize(Decimal("0.01"))
+        prop_net = compute_net_economic_objective(
+            gross_contribution_usd=prop_gross,
+            lateness_penalty_usd=prop_metrics.lateness_penalty_usd,
+            sourcing_cost_usd=freight,
+            bay_blocked_penalty_usd=prop_metrics.bay_blocked_penalty_usd or Decimal("0.00"),
+            schedule_churn_penalty_usd=churn_cost,
+        )
         net_delta = (prop_net - base_net).quantize(Decimal("0.01"))
 
         # Bay Utilization calculation

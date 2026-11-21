@@ -7,6 +7,7 @@ Hierarchy:
 - Independent Supplemental Audit Oracle and Explicit Workshop Evidence Contracts
 """
 
+from app.optimise.accounting import compute_net_economic_objective
 from app.optimise.config import OptimiseConfig
 from app.optimise.cpsat_solver import CPSATScheduler
 from app.optimise.evidence import (
@@ -38,6 +39,7 @@ from app.optimise.supplemental_audit import (
 )
 
 __all__ = [
+    "compute_net_economic_objective",
     "OptimiseConfig",
     "T1BitsetScheduler",
     "BitsetOccupancyGrid",

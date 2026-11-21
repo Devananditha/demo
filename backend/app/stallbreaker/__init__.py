@@ -14,7 +14,12 @@ from app.stallbreaker.models import (
     StallBreakerRecoveryReport,
     StoredEvent,
 )
-from app.stallbreaker.security import compute_hmac_sha256, verify_hmac_sha256
+from app.stallbreaker.security import (
+    compute_hmac_sha256,
+    is_production_mode,
+    validate_event_timestamp,
+    verify_hmac_sha256,
+)
 from app.stallbreaker.state_transitions import DealershipStateMutator
 
 __all__ = [
@@ -29,6 +34,8 @@ __all__ = [
     "StallBreakerApprovalRequest",
     "compute_hmac_sha256",
     "verify_hmac_sha256",
+    "is_production_mode",
+    "validate_event_timestamp",
     "EventTamperError",
     "StallBreakerEventStore",
     "stallbreaker_event_store",

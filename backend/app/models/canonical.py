@@ -252,3 +252,20 @@ class SupplierOffer(Base):
         CheckConstraint("usable_ready_tick >= quoted_eta_tick", name="check_usable_after_quoted_eta"),
         CheckConstraint("version >= 1", name="check_supplier_offer_version_positive"),
     )
+
+
+class StallBreakerEventModel(Base):
+    """Durable append-only audit ledger for shop-floor telemetry and disruption events."""
+    __tablename__ = "stallbreaker_events"
+
+    event_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    rooftop_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    signature: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    snapshot_hash_before: Mapped[str] = mapped_column(String(64), nullable=False)
+    snapshot_hash_after: Mapped[str] = mapped_column(String(64), nullable=False)
