@@ -213,7 +213,11 @@ class DecisionReplayEngine:
                 "constraint": "C7",
                 "name": "Manager Authorization & OCC",
                 "status": "SATISFIED" if (recommended and recommended.sourcing_cost_usd <= Decimal("50.00")) else "PENDING_APPROVAL",
-                "evidence": "Cryptographic snapshot hash validated; freight surcharge within authorized policy limit.",
+                "evidence": (
+                    f"Cryptographic snapshot hash validated; expedited freight surcharge (${recommended.sourcing_cost_usd:.2f}) within authorized policy limit ($50.00)."
+                    if (recommended and recommended.sourcing_cost_usd > Decimal("0.00"))
+                    else "Cryptographic snapshot hash validated; standard freight ($0.00) within policy authority."
+                ),
             },
         ]
 

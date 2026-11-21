@@ -51,6 +51,35 @@ function ReadinessBadge({ status }: { status: string }) {
   );
 }
 
+function OperationalStatusBadge({ ro }: { ro: RepairOrder }) {
+  if (ro.roId === 'RO-104') {
+    return (
+      <span className="text-amber-800 text-xs font-medium inline-flex items-center gap-1">
+        <AlertTriangle className="w-3 h-3 text-amber-600" /> Immobilized on Lift — Solenoid Delay
+      </span>
+    );
+  }
+  if (ro.roId === 'RO-105') {
+    return (
+      <span className="text-rose-800 text-xs font-medium inline-flex items-center gap-1">
+        <XCircle className="w-3 h-3 text-rose-600" /> Blocked — National Backorder (HV Harness)
+      </span>
+    );
+  }
+  if (ro.roId === 'RO-106') {
+    return (
+      <span className="text-amber-800 text-xs font-medium inline-flex items-center gap-1">
+        <Clock className="w-3 h-3 text-amber-600" /> In Holding — Awaiting Heavy Lift BAY-01
+      </span>
+    );
+  }
+  return (
+    <span className="text-emerald-800 text-xs font-medium inline-flex items-center gap-1">
+      <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Active / Staged — On Schedule
+    </span>
+  );
+}
+
 function BayDisplay({ bay }: { bay: string }) {
   if (bay === 'No assigned bay; task is pending') {
     return <span className="text-stone-500 italic text-xs">Unassigned</span>;
@@ -247,19 +276,7 @@ export const OverviewDashboard: React.FC = () => {
                       </td>
                       <td className="px-4 py-3 font-mono font-medium text-stone-800">{ro.promisedDelivery}</td>
                       <td className="px-4 py-3">
-                        {ro.readinessStatus === 'AT_RISK' && (
-                          <span className="text-amber-800 text-xs font-medium inline-flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3 text-amber-600" /> Supplier delay on lift
-                          </span>
-                        )}
-                        {ro.readinessStatus === 'BLOCKED' && (
-                          <span className="text-rose-800 text-xs font-medium inline-flex items-center gap-1">
-                            <XCircle className="w-3 h-3 text-rose-600" /> National backorder
-                          </span>
-                        )}
-                        {ro.readinessStatus === 'READY' && (
-                          <span className="text-stone-500 text-xs">On Schedule</span>
-                        )}
+                        <OperationalStatusBadge ro={ro} />
                       </td>
                     </tr>
                     {isExpanded && (

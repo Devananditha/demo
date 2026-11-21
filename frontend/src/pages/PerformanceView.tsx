@@ -14,12 +14,45 @@ import {
 } from 'lucide-react';
 
 export const PerformanceView: React.FC = () => {
-  const { recoveryReport, approvalResult, hasRunRecovery, setActiveSection } = useAppState();
+  const {
+    recoveryReport,
+    approvalResult,
+    hasRunRecovery,
+    setActiveSection,
+    selectedAlternative,
+  } = useAppState();
 
   const totalLaborGross = MOCK_REPAIR_ORDERS.reduce((sum, ro) => sum + ro.laborGrossUsd, 0);
-  const onTimeCount = hasRunRecovery ? 5 : 4; // RO-104 protected upon recovery execution
 
   const dr = recoveryReport?.decision_replay;
+  const freightUsd = selectedAlternative
+    ? Number(selectedAlternative.sourcing_cost_usd)
+    : Number(dr?.sourcing_freight_usd ?? 37.0);
+  const netDeltaUsd = selectedAlternative
+    ? Number(selectedAlternative.net_recovery_delta_usd)
+    : Number(dr?.net_economic_delta_usd ?? 463.0);
+  const supplierName =
+    selectedAlternative?.sourcing_candidate?.supplier_name || 'Regional Hotshot Dedicated Courier';
+
+  const assignments = selectedAlternative?.schedule_result?.plan?.assignments || [];
+  const getRoFinishTick = (roId: string) => {
+    const roAssigns = assignments.filter((a: any) => a.ro_id === roId);
+    if (roAssigns.length === 0) return null;
+    return Math.max(...roAssigns.map((a: any) => a.end_tick));
+  };
+
+  const onTimeCount = hasRunRecovery
+    ? MOCK_REPAIR_ORDERS.filter((ro) => {
+        if (ro.roId === 'RO-104') {
+          const finish = getRoFinishTick('RO-104');
+          return finish !== null ? finish <= ro.promiseTick : true;
+        }
+        if (ro.roId === 'RO-106') {
+          return false; // Rescued into overtime
+        }
+        return ro.readinessStatus === 'READY';
+      }).length
+    : 3;
 
   function KpiCard({
     label,
@@ -108,22 +141,22 @@ export const PerformanceView: React.FC = () => {
         />
         <KpiCard
           label="Expedited Freight Investment"
-          value={dr ? `-$${dr.sourcing_freight_usd}` : undefined}
-          sub="Dedicated hotshot courier"
+          value={hasRunRecovery ? `-$${freightUsd.toFixed(2)}` : undefined}
+          sub={supplierName}
           color="text-rose-800"
           icon={Truck}
         />
         <KpiCard
           label="Net Economic Improvement"
-          value={dr ? `+$${dr.net_economic_delta_usd}` : undefined}
+          value={hasRunRecovery ? `+$${netDeltaUsd.toFixed(2)}` : undefined}
           sub="Protected vs. unmitigated stall"
           color="text-emerald-800"
           icon={TrendingUp}
         />
         <KpiCard
           label="Customer Promise Adherence"
-          value={hasRunRecovery ? `${onTimeCount} / ${MOCK_REPAIR_ORDERS.length} (83%)` : `4 / 6 (67%)`}
-          sub={hasRunRecovery ? "RO-104 protected on-schedule" : "RO-104 threatened by delay"}
+          value={hasRunRecovery ? `${onTimeCount} / ${MOCK_REPAIR_ORDERS.length} (67%)` : `3 / 6 (50%)`}
+          sub={hasRunRecovery ? "RO-104 on-time; RO-106 rescued into overtime" : "RO-104 delayed; RO-106 bay starved"}
           color="text-stone-900"
           icon={CheckCircle2}
           placeholder="Always available"
@@ -217,7 +250,6 @@ export const PerformanceView: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-[#eee8df]">
               {MOCK_REPAIR_ORDERS.map((ro) => {
-                const isRo104 = ro.roId === 'RO-104';
                 return (
                   <tr key={ro.roId} className="hover:bg-[#faf8f5] transition-colors">
                     <td className="px-4 py-3 font-mono font-bold text-stone-900">{ro.roId}</td>
@@ -225,23 +257,33 @@ export const PerformanceView: React.FC = () => {
                     <td className="px-4 py-3 font-mono font-medium text-stone-700">{ro.promisedDelivery}</td>
                     <td className="px-4 py-3 font-mono font-semibold text-stone-900">${ro.laborGrossUsd.toFixed(2)}</td>
                     <td className="px-4 py-3">
-                      {isRo104 ? (
+                      {ro.roId === 'RO-104' ? (
                         hasRunRecovery ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-200">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Protected On-Time (Hotshot S1)
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Protected On-Time ({supplierName.includes('Hotshot') ? 'Hotshot S1' : supplierName})
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200">
                             At Risk (Awaiting Sourcing Decision)
                           </span>
                         )
-                      ) : ro.readinessStatus === 'READY' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-200">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Delivered On-Time
+                      ) : ro.roId === 'RO-106' ? (
+                        hasRunRecovery ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Admitted to BAY-01 (Rescued in Overtime)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200">
+                            In Holding (Awaiting Heavy Lift BAY-01)
+                          </span>
+                        )
+                      ) : ro.roId === 'RO-105' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200">
+                          Blocked — National Backorder (HV Harness)
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#f5f1e8] text-stone-700 border border-[#ded7c8]">
-                          Awaiting National Part ETA
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-200">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Delivered On-Time
                         </span>
                       )}
                     </td>

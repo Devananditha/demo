@@ -12,6 +12,9 @@ export interface AppState {
   workshopState: DealershipStateResponse | null;
   readinessReport: DealershipReadinessReport | null;
   recoveryReport: StallBreakerRecoveryReport | null;
+  selectedPlanId: string | null;
+  setSelectedPlanId: (id: string | null) => void;
+  selectedAlternative: any | null;
   verificationResult: any | null;
   approvalResult: CommitResult | null;
   hasRunRecovery: boolean;
@@ -32,10 +35,24 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [workshopState, setWorkshopState] = useState<DealershipStateResponse | null>(null);
   const [readinessReport, setReadinessReport] = useState<DealershipReadinessReport | null>(null);
   const [recoveryReport, setRecoveryReport] = useState<StallBreakerRecoveryReport | null>(null);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [verificationResult, setVerificationResult] = useState<any | null>(null);
   const [approvalResult, setApprovalResult] = useState<CommitResult | null>(null);
   const [hasRunRecovery, setHasRunRecovery] = useState<boolean>(false);
   const [hasRunVerification, setHasRunVerification] = useState<boolean>(false);
+
+  // Single Source of Truth: derive the selected alternative
+  const activePlanId = selectedPlanId || recoveryReport?.recommended_plan_id || null;
+  const selectedAlternative = recoveryReport?.evaluated_alternatives?.find(
+    (a: any) => a.plan_id === activePlanId
+  ) || (recoveryReport?.evaluated_alternatives?.[0] ?? null);
+
+  const handleSetRecoveryReport = (report: StallBreakerRecoveryReport | null) => {
+    setRecoveryReport(report);
+    if (report?.recommended_plan_id) {
+      setSelectedPlanId(report.recommended_plan_id);
+    }
+  };
 
   return (
     <AppStateContext.Provider
@@ -45,13 +62,16 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         workshopState,
         readinessReport,
         recoveryReport,
+        selectedPlanId,
+        setSelectedPlanId,
+        selectedAlternative,
         verificationResult,
         approvalResult,
         hasRunRecovery,
         hasRunVerification,
         setWorkshopState,
         setReadinessReport,
-        setRecoveryReport,
+        setRecoveryReport: handleSetRecoveryReport,
         setVerificationResult,
         setApprovalResult,
         setHasRunRecovery,

@@ -54,7 +54,7 @@ export const Header: React.FC = () => {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
             </span>
             <span className="text-xs text-stone-600 font-medium">
-              Live Simulation
+              Simulation Active
             </span>
           </div>
         </div>

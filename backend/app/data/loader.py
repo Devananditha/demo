@@ -110,6 +110,7 @@ def load_canonical_evidence(
 
     return WorkshopEvidenceBundle(
         current_tick=current_tick,
+        available_porter_tech_ids={t.tech_id for t in snapshot.technicians} | {"PORTER-01"},
         customer_authorizations=customer_auths,
         manager_freight_approvals=freight_approvals,
         task_progress=progress_evidence,

@@ -487,6 +487,29 @@ class CPSATScheduler:
         for p_id, p_ints in porter_intervals.items():
             model.AddNoOverlap(p_ints)
 
+        # Immobilized Vehicle Bay Exclusivity (C4 & C5)
+        # An immobilized vehicle physically occupies its bay until its repair completes.
+        # Any other vehicle assigned to that bay can only enter after the immobilized repair finishes.
+        # If the immobilized vehicle's repair is not scheduled, no other vehicle can use the bay.
+        for imm_ro_id, assigned_bay in immobilized_bay_reservations.items():
+            imm_tasks = [t for t in schedulable_tasks if t.ro_id == imm_ro_id]
+            if not imm_tasks:
+                for other_t in schedulable_tasks:
+                    if other_t.ro_id != imm_ro_id and (other_t.task_id, assigned_bay) in bay_assignment_vars:
+                        model.Add(bay_assignment_vars[(other_t.task_id, assigned_bay)] == 0)
+                continue
+
+            t_imm = imm_tasks[0]
+            imm_is_sched = task_vars[t_imm.task_id]["is_scheduled"]
+            imm_end = task_vars[t_imm.task_id]["end"]
+
+            for other_t in schedulable_tasks:
+                if other_t.ro_id != imm_ro_id and (other_t.task_id, assigned_bay) in bay_assignment_vars:
+                    other_on_bay = bay_assignment_vars[(other_t.task_id, assigned_bay)]
+                    model.Add(other_on_bay <= imm_is_sched)
+                    min_gap = 2 if other_t.task_id in move_vars else 0
+                    model.Add(task_vars[other_t.task_id]["start"] >= imm_end + min_gap).OnlyEnforceIf(other_on_bay)
+
         # 6. Precedence DAG Constraints (C3)
         for task in schedulable_tasks:
             t_id = task.task_id

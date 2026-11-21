@@ -699,13 +699,10 @@ def approve_stallbreaker_recovery(request: StallBreakerApprovalRequest) -> Commi
         )
     )
     candidate = next((a for a in replan_report.alternatives if a.plan_id == request.plan_id), None)
-    if not candidate and replan_report.alternatives:
-        candidate = replan_report.alternatives[0]
-
     if not candidate:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Recovery plan '{request.plan_id}' not found or no candidate available.",
+            detail=f"Recovery plan '{request.plan_id}' not found in active recovery candidates.",
         )
 
     result = stallbreaker_approval_gateway.process_approval(

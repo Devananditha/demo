@@ -29,7 +29,7 @@ const CONSTRAINTS: ConstraintRow[] = [
   { id: 'C4', label: 'Resource Exclusivity', description: 'Zero overlapping double-booking: no technician or service bay can be scheduled for two vehicles at once.' },
   { id: 'C5', label: 'Physical Vehicle Movement', description: 'Immobilized vehicles cannot be moved. Lift stall occupancy preserved until transmission pan reassembled.' },
   { id: 'C6', label: 'Technician Shifts & Breaks', description: 'Work shifts strictly bounded by operating hours and mandatory meal breaks. No unapproved shift overruns.' },
-  { id: 'C7', label: 'Manager Authorization Limits', description: 'Expedited freight surcharge must be authorized within manager spending policy limits ($37.00 < $50.00).' },
+  { id: 'C7', label: 'Manager Authorization Limits', description: 'Expedited freight surcharge must be authorized within manager spending policy limits ($50.00 max).' },
 ];
 
 function ConstraintStatus({ status }: { status: 'unchecked' | 'pass' | 'fail' }) {
@@ -66,11 +66,18 @@ export const VerificationApprovalView: React.FC = () => {
     hasRunVerification,
     setHasRunVerification,
     setActiveSection,
+    selectedAlternative,
+    selectedPlanId,
   } = useAppState();
 
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [approveLoading, setApproveLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const planToCommit = selectedAlternative?.plan_id || selectedPlanId || recoveryReport?.recommended_plan_id;
+  const freightToAuthorize = selectedAlternative
+    ? Number(selectedAlternative.sourcing_cost_usd)
+    : Number(recoveryReport?.recommended_action?.freight_surcharge_usd ?? 37.0);
 
   const handleRunVerification = async () => {
     if (!hasRunRecovery) return;
@@ -88,16 +95,16 @@ export const VerificationApprovalView: React.FC = () => {
   };
 
   const handleApprove = async () => {
-    if (!recoveryReport?.recommended_plan_id || !workshopState?.snapshot_hash) return;
+    if (!planToCommit || !recoveryReport?.event_id || !workshopState?.snapshot_hash) return;
     setApproveLoading(true);
     setError(null);
     try {
       const result = await approveStallBreakerRecovery(
-        recoveryReport.recommended_plan_id,
+        planToCommit,
         recoveryReport.event_id,
         workshopState.snapshot_hash,
         'MGR-MARCUS',
-        50.0
+        freightToAuthorize
       );
       setApprovalResult(result);
     } catch (err: unknown) {
@@ -110,6 +117,16 @@ export const VerificationApprovalView: React.FC = () => {
   const getConstraintEvaluation = (cId: string): { status: 'unchecked' | 'pass' | 'fail'; evidence?: string } => {
     if (!hasRunVerification || !verificationResult) {
       return { status: 'unchecked' };
+    }
+    if (cId === 'C7') {
+      const evidence =
+        freightToAuthorize > 0
+          ? `Expedited freight ($${freightToAuthorize.toFixed(2)}) authorized within manager $50.00 limit`
+          : 'Standard ground freight ($0.00); no surcharge required';
+      return {
+        status: freightToAuthorize <= 50.0 ? 'pass' : 'fail',
+        evidence,
+      };
     }
     const explainability = verificationResult?.explainability;
     if (!explainability) {
@@ -260,7 +277,7 @@ export const VerificationApprovalView: React.FC = () => {
             <div className="space-y-0.5 text-left">
               <div className="text-xs font-bold text-stone-900">Authorize Freight & Commit Optimal Dispatch</div>
               <div className="text-xs text-stone-600">
-                Approver: <strong className="text-stone-900">MGR-MARCUS</strong> &bull; Expedited Surcharge: <strong className="text-emerald-800 font-mono font-bold">$37.00</strong> (Authorized Policy Limit: $50.00)
+                Plan: <strong className="font-mono text-stone-900">{planToCommit}</strong> &bull; Approver: <strong className="text-stone-900">MGR-MARCUS</strong> &bull; Surcharge: <strong className="text-emerald-800 font-mono font-bold">${freightToAuthorize.toFixed(2)}</strong> (Authorized Limit: $50.00)
               </div>
             </div>
 

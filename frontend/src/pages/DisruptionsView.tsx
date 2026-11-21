@@ -255,7 +255,7 @@ export const DisruptionsView: React.FC = () => {
         {analysis && (
           <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-lg space-y-2 text-xs">
             <div className="flex items-center gap-2 font-semibold text-amber-900">
-              <AlertTriangle className="w-4 h-4 text-amber-600" /> Live Disruption Analysis Output
+              <AlertTriangle className="w-4 h-4 text-amber-600" /> Automated Disruption Analysis Output
             </div>
             <p className="text-stone-700 leading-relaxed">{analysis.impact_summary}</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-amber-200/80 font-mono text-[11px]">
