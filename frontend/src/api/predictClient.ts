@@ -4,6 +4,7 @@ import {
   DealershipStateResponse,
   EventIngestResponse,
   RecoveryRecommendationResponse,
+  ScheduleResult,
   StallBreakerDisruptionAnalysis,
   StallBreakerRecoveryReport,
   StoredEvent,
@@ -43,6 +44,39 @@ export async function fetchPredictReadiness(
       // fallback to status text
     }
     throw new Error(`Predict API Error (HTTP ${res.status}): ${detail}`);
+  }
+
+  return res.json();
+}
+
+export async function fetchInitialSchedule(
+  rooftopId: string,
+  snapshotHash: string,
+  allowEmergencyOvertime: boolean = false,
+  timeBudgetSeconds: number = 2.5
+): Promise<ScheduleResult> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/optimise/schedule`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      rooftop_id: rooftopId,
+      snapshot_hash: snapshotHash,
+      allow_emergency_overtime: allowEmergencyOvertime,
+      time_budget_seconds: timeBudgetSeconds,
+    }),
+  });
+
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      const err = await res.json();
+      detail = err.detail || detail;
+    } catch {
+      // fallback to status text
+    }
+    throw new Error(`Schedule API Error (HTTP ${res.status}): ${detail}`);
   }
 
   return res.json();

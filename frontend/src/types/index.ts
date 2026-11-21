@@ -91,6 +91,107 @@ export interface DealershipStateResponse {
   repair_orders: DealershipStateItem[];
 }
 
+export interface ScheduledAssignment {
+  task_id: string;
+  ro_id: string;
+  tech_id: string;
+  bay_id: string;
+  start_tick: number;
+  end_tick: number;
+}
+
+export interface VehicleBayOccupancy {
+  vehicle_id: string;
+  ro_id: string;
+  bay_id: string;
+  start_tick: number;
+  end_tick: number;
+}
+
+export interface CandidateSchedulePlan {
+  plan_id: string;
+  rooftop_id: string;
+  snapshot_hash: string;
+  assignments: ScheduledAssignment[];
+  vehicle_occupancies: VehicleBayOccupancy[];
+  customer_authorizations: Record<string, boolean>;
+  manager_freight_approvals: Record<string, boolean>;
+  allow_emergency_overtime: boolean;
+}
+
+export interface PlannedVehicleMovement {
+  vehicle_id: string;
+  ro_id: string;
+  origin_location: string;
+  target_bay_id: string;
+  start_tick: number;
+  end_tick: number;
+  assigned_resource_id: string;
+  resource_type: string;
+  resource_availability: string;
+  movement_status: string;
+  related_task_id: string;
+}
+
+export interface ObjectiveMetrics {
+  gross_contribution_usd: string;
+  sourcing_cost_usd: string;
+  weighted_lateness_ticks: number;
+  lateness_penalty_usd: string;
+  bay_blocked_ticks: number;
+  bay_blocked_penalty_usd: string;
+  schedule_churn_score?: number | null;
+  schedule_churn_penalty_usd?: string | null;
+  churn_status: string;
+  net_objective_usd: string;
+  objective_completeness: string;
+  configured_terms: string[];
+  unconfigured_terms: string[];
+  ro_completion_statuses: Record<string, string>;
+  uncompleted_ros_count: number;
+}
+
+export interface ScheduleConstraintViolation {
+  rule_id: string;
+  description: string;
+  severity: string;
+  entity_id?: string | null;
+  tick?: number | null;
+}
+
+export interface ScheduleVerificationResult {
+  plan_id: string;
+  snapshot_hash: string;
+  is_valid: boolean;
+  violations: ScheduleConstraintViolation[];
+  execution_time_ms: number;
+}
+
+export interface ScheduleResult {
+  plan_id: string;
+  rooftop_id: string;
+  snapshot_hash: string;
+  solver_tier: 'T1_HEURISTIC' | 'T2_CPSAT' | string;
+  solver_status: 'OPTIMAL' | 'FEASIBLE' | 'INFEASIBLE' | 'UNKNOWN' | string;
+  runtime_ms: number;
+  objective_value_usd?: string | number | null;
+  best_bound_usd?: string | number | null;
+  optimality_gap?: number | null;
+  plan: CandidateSchedulePlan;
+  planned_movements: PlannedVehicleMovement[];
+  metrics: ObjectiveMetrics;
+  unscheduled_tasks: Record<string, string>;
+  verification_result?: ScheduleVerificationResult | null;
+  is_verified: boolean;
+  supplemental_audit_result?: Record<string, unknown> | null;
+  is_fully_certified: boolean;
+  is_actionable: boolean;
+  evidence_coverage_gaps: string[];
+  ro_completion_statuses: Record<string, string>;
+  degradation_reason?: string | null;
+  created_at: string;
+}
+
 export interface DisruptionSupplierOption {
   supplierId: string;
   supplierName: string;
