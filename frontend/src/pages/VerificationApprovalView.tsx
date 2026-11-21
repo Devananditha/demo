@@ -35,21 +35,21 @@ const CONSTRAINTS: ConstraintRow[] = [
 function ConstraintStatus({ status }: { status: 'unchecked' | 'pass' | 'fail' }) {
   if (status === 'pass') {
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Pass
       </span>
     );
   }
   if (status === 'fail') {
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-rose-50 text-rose-800 border border-rose-200">
         <XCircle className="w-3.5 h-3.5 text-rose-600" /> Fail
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
-      <Clock className="w-3.5 h-3.5 text-slate-400" /> Not Checked
+    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium bg-[#eee8dc] text-stone-600 border border-[#ded7c8]">
+      <Clock className="w-3.5 h-3.5 text-stone-400" /> Not Checked
     </span>
   );
 }
@@ -133,17 +133,17 @@ export const VerificationApprovalView: React.FC = () => {
   return (
     <div className="space-y-6 pb-8">
       {/* Header Banner */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs">
+      <div className="bg-white border border-[#e5dfd5] rounded-lg p-5 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
-              <ShieldCheck className="w-4 h-4 text-blue-700" />
-              <span className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
+              <ShieldCheck className="w-4 h-4 text-stone-800" />
+              <span className="text-xs font-semibold text-stone-800 uppercase tracking-wide">
                 Operational Compliance Gate
               </span>
             </div>
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Independent Verification & Approval Gate</h2>
-            <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
+            <h2 className="text-xl font-bold text-stone-900 tracking-tight">Independent Verification & Approval Gate</h2>
+            <p className="text-xs text-stone-500 mt-1 max-w-2xl leading-relaxed">
               Every candidate schedule must pass an independent rules audit across physical workshop constraints
               before the Service Manager can authorize expedited freight and dispatch the schedule.
             </p>
@@ -152,7 +152,7 @@ export const VerificationApprovalView: React.FC = () => {
           {approvalResult?.status === 'COMMITTED' && (
             <button
               onClick={() => setActiveSection(5)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-medium shadow-xs transition-colors self-start sm:self-auto shrink-0"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-xs font-medium shadow-xs transition-colors self-start sm:self-auto shrink-0"
             >
               <span>View Performance & Insights</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -162,20 +162,20 @@ export const VerificationApprovalView: React.FC = () => {
       </div>
 
       {!hasRunRecovery && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-800">
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900">
           <div className="flex items-start gap-3">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-700" />
             <div>
-              <span className="font-semibold text-amber-900">Complete Recovery Decisions step first.</span> Verification
+              <span className="font-semibold text-amber-950">Complete Recovery Decisions step first.</span> Verification
               audits a candidate dispatch plan. Please run the Economic Optimizer in Recovery Decisions first.
             </div>
           </div>
           <button
             onClick={() => setActiveSection(3)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-xs font-medium shadow-xs transition-colors shrink-0 self-start sm:self-auto"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-700 hover:bg-amber-850 text-white rounded-md text-xs font-medium shadow-xs transition-colors shrink-0 self-start sm:self-auto"
           >
             <span>Go to Recovery Decisions</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <ArrowRight className="w-3 h-3" />
           </button>
         </div>
       )}
@@ -185,19 +185,19 @@ export const VerificationApprovalView: React.FC = () => {
       )}
 
       {/* Constraint Checklist Card */}
-      <div className="bg-white border border-slate-200 rounded-lg shadow-xs overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-white border border-[#e5dfd5] rounded-lg shadow-xs overflow-hidden">
+        <div className="px-5 py-4 border-b border-[#e5dfd5] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#faf8f5]">
           <div>
-            <h3 className="text-sm font-semibold text-slate-900">Seven Operational Hard Constraints</h3>
-            <p className="text-xs text-slate-500 mt-0.5">All seven rules must pass with certified compliance before manager approval unlocks.</p>
+            <h3 className="text-sm font-semibold text-stone-900">Seven Operational Hard Constraints</h3>
+            <p className="text-xs text-stone-500 mt-0.5">All seven rules must pass with certified compliance before manager approval unlocks.</p>
           </div>
           <button
             onClick={handleRunVerification}
             disabled={verifyLoading || !hasRunRecovery || hasRunVerification}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs font-medium transition-colors shrink-0 ${
               !hasRunRecovery || hasRunVerification
-                ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none'
-                : 'bg-blue-700 hover:bg-blue-800 text-white shadow-xs'
+                ? 'bg-[#f0ebe0] text-stone-400 border border-[#ded7c8] cursor-not-allowed shadow-none'
+                : 'bg-stone-900 hover:bg-stone-800 text-white shadow-xs'
             }`}
           >
             {verifyLoading ? (
@@ -210,20 +210,20 @@ export const VerificationApprovalView: React.FC = () => {
           </button>
         </div>
 
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-[#eee8df]">
           {CONSTRAINTS.map((c) => {
             const evalResult = getConstraintEvaluation(c.id);
             return (
-              <div key={c.id} className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors">
+              <div key={c.id} className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#faf8f5] transition-colors">
                 <div className="flex items-start gap-3">
-                  <span className="px-2 py-0.5 rounded text-xs font-mono font-semibold bg-slate-100 text-slate-700 border border-slate-200 shrink-0 mt-0.5">
+                  <span className="px-2 py-0.5 rounded text-xs font-mono font-semibold bg-[#f5f1e8] text-stone-700 border border-[#ded7c8] shrink-0 mt-0.5">
                     {c.id}
                   </span>
                   <div>
-                    <div className="text-xs font-bold text-slate-900">{c.label}</div>
-                    <p className="text-xs text-slate-600 leading-relaxed mt-0.5">{c.description}</p>
+                    <div className="text-xs font-bold text-stone-900">{c.label}</div>
+                    <p className="text-xs text-stone-600 leading-relaxed mt-0.5">{c.description}</p>
                     {evalResult.evidence && (
-                      <div className="mt-1 text-xs text-emerald-700 font-mono flex items-center gap-1.5">
+                      <div className="mt-1 text-xs text-emerald-800 font-mono flex items-center gap-1.5">
                         <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
                         <span>{evalResult.evidence}</span>
                       </div>
@@ -241,26 +241,26 @@ export const VerificationApprovalView: React.FC = () => {
 
       {/* Approval Section — Unlocked upon 7/7 Pass */}
       {allPass && (
-        <div className="bg-white border-2 border-emerald-500 rounded-lg p-5 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="bg-white border-2 border-emerald-600 rounded-lg p-5 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-[#eee8df] pb-3">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-              <h3 className="text-sm font-semibold text-slate-900">Verification Clearance Granted — Manager Authority Gate</h3>
+              <h3 className="text-sm font-semibold text-stone-900">Verification Clearance Granted — Manager Authority Gate</h3>
             </div>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded bg-emerald-50 text-emerald-900 border border-emerald-200">
               7 / 7 PASSED
             </span>
           </div>
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <p className="text-xs text-stone-600 leading-relaxed">
             All physical, temporal, and resource constraints have been independently audited and certified.
             The Service Manager can now commit this plan and dispatch parts procurement.
           </p>
 
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="p-4 bg-[#faf8f5] border border-[#e5dfd5] rounded-lg flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="space-y-0.5 text-left">
-              <div className="text-xs font-bold text-slate-900">Authorize Freight & Commit Optimal Dispatch</div>
-              <div className="text-xs text-slate-600">
-                Approver: <strong className="text-slate-900">MGR-MARCUS</strong> &bull; Expedited Surcharge: <strong className="text-emerald-700 font-mono font-bold">$37.00</strong> (Authorized Policy Limit: $50.00)
+              <div className="text-xs font-bold text-stone-900">Authorize Freight & Commit Optimal Dispatch</div>
+              <div className="text-xs text-stone-600">
+                Approver: <strong className="text-stone-900">MGR-MARCUS</strong> &bull; Expedited Surcharge: <strong className="text-emerald-800 font-mono font-bold">$37.00</strong> (Authorized Policy Limit: $50.00)
               </div>
             </div>
 
@@ -269,8 +269,8 @@ export const VerificationApprovalView: React.FC = () => {
               disabled={approveLoading || approvalResult?.status === 'COMMITTED'}
               className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-xs font-semibold shadow-xs transition-colors shrink-0 ${
                 approvalResult?.status === 'COMMITTED'
-                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 cursor-default'
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 cursor-default'
+                  : 'bg-emerald-700 hover:bg-emerald-800 text-white'
               }`}
             >
               {approvalResult?.status === 'COMMITTED' ? (
@@ -284,21 +284,21 @@ export const VerificationApprovalView: React.FC = () => {
           </div>
 
           {approvalResult && (
-            <div className="p-4 bg-emerald-50/60 border border-emerald-200 rounded-md space-y-2 text-xs">
+            <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-md space-y-2 text-xs">
               <div className="flex items-center justify-between font-mono">
-                <span className="text-emerald-900 font-bold">
+                <span className="text-emerald-950 font-bold">
                   TRANSACTION COMMITTED &bull; Status: {approvalResult.status}
                 </span>
-                <span className="text-emerald-700">
+                <span className="text-emerald-800">
                   {approvalResult.outbox_events_dispatched} Transactional Outbox Events Dispatched
                 </span>
               </div>
               {approvalResult.outbox_events && approvalResult.outbox_events.length > 0 && (
-                <div className="divide-y divide-emerald-200/60 text-xs text-slate-700 pt-1 font-mono">
+                <div className="divide-y divide-emerald-200/60 text-xs text-stone-700 pt-1 font-mono">
                   {approvalResult.outbox_events.map((evt, idx) => (
                     <div key={idx} className="py-1 flex items-center justify-between">
-                      <span className="font-semibold text-slate-900">{evt.event_type}</span>
-                      <span className="text-slate-500">{evt.aggregate_id}</span>
+                      <span className="font-semibold text-stone-900">{evt.event_type}</span>
+                      <span className="text-stone-500">{evt.aggregate_id}</span>
                     </div>
                   ))}
                 </div>
@@ -307,7 +307,7 @@ export const VerificationApprovalView: React.FC = () => {
               <div className="pt-2 flex justify-end">
                 <button
                   onClick={() => setActiveSection(5)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-medium shadow-xs transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-medium shadow-xs transition-colors"
                 >
                   <TrendingUp className="w-3.5 h-3.5" />
                   <span>View Executive Performance Dashboard</span>
@@ -321,12 +321,12 @@ export const VerificationApprovalView: React.FC = () => {
 
       {/* Locked Approval Notice (Pre-Verification) */}
       {!allPass && (
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5 shadow-xs space-y-2">
+        <div className="bg-[#faf8f5] border border-[#e5dfd5] rounded-lg p-5 shadow-xs space-y-2">
           <div className="flex items-center gap-2 mb-1">
-            <Lock className="w-4 h-4 text-slate-400" />
-            <h3 className="text-sm font-semibold text-slate-700">Approval Gate Locked</h3>
+            <Lock className="w-4 h-4 text-stone-400" />
+            <h3 className="text-sm font-semibold text-stone-700">Approval Gate Locked</h3>
           </div>
-          <p className="text-xs text-slate-500 leading-relaxed">
+          <p className="text-xs text-stone-500 leading-relaxed">
             {!hasRunRecovery
               ? 'Run the Economic Optimizer in Recovery Decisions first, then run the verification check above.'
               : !hasRunVerification
@@ -336,7 +336,7 @@ export const VerificationApprovalView: React.FC = () => {
           <div className="pt-1">
             <button
               disabled
-              className="px-4 py-2 bg-slate-100 text-slate-400 border border-slate-200 rounded-md text-xs font-medium cursor-not-allowed flex items-center gap-2"
+              className="px-4 py-2 bg-[#f0ebe0] text-stone-400 border border-[#ded7c8] rounded-md text-xs font-medium cursor-not-allowed flex items-center gap-2"
             >
               <Lock className="w-3.5 h-3.5" />
               Authorize & Commit Plan

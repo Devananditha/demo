@@ -32,7 +32,7 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-blue-100 selection:text-blue-900">
+    <div className="min-h-screen bg-[#f5f2ea] text-stone-900 flex flex-col font-sans selection:bg-amber-100 selection:text-stone-900">
       {/* Persistent Enterprise Operations Header */}
       <Header />
 
@@ -57,15 +57,15 @@ const AppContent: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-4 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+      <footer className="border-t border-[#e5dfd5] bg-[#faf8f5] py-4 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-stone-500 gap-2">
           <div className="flex items-center space-x-2">
-            <ShieldAlert className="w-3.5 h-3.5 text-slate-400" />
+            <ShieldAlert className="w-3.5 h-3.5 text-stone-400" />
             <span>
               Synthetic Demonstration Environment &bull; Advisory Decision Intelligence for Automotive Fixed Operations
             </span>
           </div>
-          <div className="text-slate-400">
+          <div className="text-stone-400">
             &copy; {new Date().getFullYear()} ServiceYield AI. All rights reserved.
           </div>
         </div>

@@ -64,40 +64,40 @@ export const BenchmarkEvaluationView: React.FC<BenchmarkEvaluationViewProps> = (
   return (
     <div className="space-y-6 pb-8">
       {/* Header Banner */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs">
+      <div className="bg-white border border-[#e5dfd5] rounded-lg p-5 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+              <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-[#f5f1e8] text-stone-700 border border-[#ded7c8]">
                 Evaluation Benchmark Suite
               </span>
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-stone-500">
                 OR-Tools CP-SAT vs Heuristic Baselines
               </span>
-              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-900 border border-emerald-200">
                 C1–C7 Audit: 100% Validated
               </span>
             </div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+            <h1 className="text-xl font-bold text-stone-900 tracking-tight">
               Optimization Benchmark & Statistical Evaluation
             </h1>
-            <p className="text-xs text-slate-500 max-w-3xl leading-relaxed">
+            <p className="text-xs text-stone-500 max-w-3xl leading-relaxed">
               Deterministic paired comparisons across 4 dispatch methods (FIFO, EDF, CP-SAT, and StallBreaker)
               under 7 synthetic stress scenarios. Evaluates contribution margin, promise compliance, bay utilization, and hard constraint inviolability.
             </p>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
-            <div className="flex items-center bg-slate-100 border border-slate-200 rounded-md p-1 text-xs">
-              <span className="text-slate-500 mr-2 font-medium px-1">Seed:</span>
+            <div className="flex items-center bg-[#f5f1e8] border border-[#ded7c8] rounded-md p-1 text-xs">
+              <span className="text-stone-500 mr-2 font-medium px-1">Seed:</span>
               {[42, 101, 2026].map((s) => (
                 <button
                   key={s}
                   onClick={() => setActiveSeed(s)}
                   className={`px-2 py-0.5 rounded font-mono text-xs transition-colors ${
                     activeSeed === s
-                      ? 'bg-white text-slate-900 font-bold shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-stone-900 font-bold shadow-xs'
+                      : 'text-stone-600 hover:text-stone-900'
                   }`}
                 >
                   {s}
@@ -108,7 +108,7 @@ export const BenchmarkEvaluationView: React.FC<BenchmarkEvaluationViewProps> = (
             <button
               onClick={handleRunSuite}
               disabled={isRunning || loading}
-              className="flex items-center gap-2 px-3.5 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium transition-colors shadow-xs disabled:opacity-50"
+              className="flex items-center gap-2 px-3.5 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-md text-xs font-medium transition-colors shadow-xs disabled:opacity-50"
             >
               <RotateCcw className={`w-3.5 h-3.5 ${isRunning ? 'animate-spin' : ''}`} />
               <span>{isRunning ? 'Benchmarking…' : 'Re-Run Suite'}</span>
@@ -143,15 +143,15 @@ export const BenchmarkEvaluationView: React.FC<BenchmarkEvaluationViewProps> = (
             return (
               <div
                 key={summary.metric_name}
-                className="bg-white border border-slate-200 rounded-lg p-4 space-y-2 shadow-xs"
+                className="bg-white border border-[#e5dfd5] rounded-lg p-4 space-y-2 shadow-xs"
               >
-                <div className="flex items-center justify-between text-xs text-slate-600">
-                  <span className="font-medium text-slate-800">{summary.metric_name}</span>
+                <div className="flex items-center justify-between text-xs text-stone-600">
+                  <span className="font-medium text-stone-800">{summary.metric_name}</span>
                   <span
                     className={`font-mono font-semibold px-1.5 py-0.5 rounded text-[10px] ${
                       favorable
-                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                        : 'bg-slate-100 text-slate-700 border border-slate-200'
+                        ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
+                        : 'bg-[#f5f1e8] text-stone-700 border border-[#ded7c8]'
                     }`}
                   >
                     {isPositive ? `+${summary.pct_improvement}%` : `${summary.pct_improvement}%`}
@@ -160,20 +160,20 @@ export const BenchmarkEvaluationView: React.FC<BenchmarkEvaluationViewProps> = (
 
                 <div className="flex items-baseline justify-between pt-1">
                   <div>
-                    <div className="text-xl font-bold font-mono text-slate-900">
+                    <div className="text-xl font-bold font-mono text-stone-900">
                       {summary.stallbreaker_mean}
                     </div>
-                    <div className="text-[11px] text-slate-500">
+                    <div className="text-[11px] text-stone-500">
                       StallBreaker Mean
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs font-mono text-slate-600">
+                    <div className="text-xs font-mono text-stone-600">
                       Baseline: {summary.baseline_mean}
                     </div>
                     <div
                       className={`text-xs font-mono font-semibold ${
-                        favorable ? 'text-emerald-700' : 'text-slate-600'
+                        favorable ? 'text-emerald-800' : 'text-stone-600'
                       }`}
                     >
                       Δ {summary.mean_delta > 0 ? `+${summary.mean_delta}` : summary.mean_delta}
@@ -181,7 +181,7 @@ export const BenchmarkEvaluationView: React.FC<BenchmarkEvaluationViewProps> = (
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] font-mono text-slate-500">
+                <div className="pt-2 border-t border-[#eee8df] flex items-center justify-between text-[11px] font-mono text-stone-500">
                   <span>95% CI: [{summary.ci_95_lower}, {summary.ci_95_upper}]</span>
                   <span>p = {summary.p_value}</span>
                 </div>
@@ -192,15 +192,15 @@ export const BenchmarkEvaluationView: React.FC<BenchmarkEvaluationViewProps> = (
       )}
 
       {/* Scenario Selector Tabs */}
-      <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3 shadow-xs">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+      <div className="bg-white border border-[#e5dfd5] rounded-lg p-4 space-y-3 shadow-xs">
+        <div className="flex items-center justify-between border-b border-[#eee8df] pb-3">
           <div className="flex items-center gap-2">
-            <Scale className="w-4 h-4 text-slate-600" />
-            <h2 className="text-sm font-semibold text-slate-900">
+            <Scale className="w-4 h-4 text-stone-600" />
+            <h2 className="text-sm font-semibold text-stone-900">
               Evaluated Dealership Scenarios (7 Scenarios)
             </h2>
           </div>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-stone-500">
             Select a scenario to inspect comparative dispatch performance
           </span>
         </div>
@@ -216,24 +216,24 @@ export const BenchmarkEvaluationView: React.FC<BenchmarkEvaluationViewProps> = (
                 onClick={() => setSelectedScenarioId(scen.scenario_id)}
                 className={`p-3 rounded-md text-left transition-all border ${
                   isSelected
-                    ? 'bg-blue-50/70 border-blue-600 shadow-xs'
-                    : 'bg-slate-50 border-slate-200 hover:bg-slate-100/70'
+                    ? 'bg-[#ede7dc] border-stone-800 shadow-xs'
+                    : 'bg-[#faf8f5] border-[#e5dfd5] hover:bg-[#f5f1e8]'
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] uppercase font-semibold text-slate-500">
+                  <span className="text-[10px] uppercase font-semibold text-stone-500">
                     {scen.scenario_type.replace(/_/g, ' ')}
                   </span>
                   {isNull ? (
-                    <span className="w-2 h-2 rounded-full bg-slate-400" title="Null Control" />
+                    <span className="w-2 h-2 rounded-full bg-stone-400" title="Null Control" />
                   ) : (
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" title="Active Disruption" />
+                    <span className="w-2 h-2 rounded-full bg-emerald-600" title="Active Disruption" />
                   )}
                 </div>
-                <div className="text-xs font-semibold truncate text-slate-900">
+                <div className="text-xs font-semibold truncate text-stone-900">
                   {scen.title}
                 </div>
-                <div className="mt-1.5 text-xs font-mono font-semibold text-blue-700">
+                <div className="mt-1.5 text-xs font-mono font-semibold text-stone-800">
                   {isNull ? 'ΔZ = $0.00' : `+$${scen.stallbreaker_advantage_usd}`}
                 </div>
               </button>
@@ -244,31 +244,31 @@ export const BenchmarkEvaluationView: React.FC<BenchmarkEvaluationViewProps> = (
 
       {/* Selected Scenario Deep-Dive Comparison */}
       {selectedScenario && (
-        <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-5 shadow-xs">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+        <div className="bg-white border border-[#e5dfd5] rounded-lg p-5 space-y-5 shadow-xs">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#eee8df]">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-[#f5f1e8] text-stone-700 border border-[#ded7c8]">
                   {selectedScenario.scenario_type}
                 </span>
-                <span className="text-xs font-mono text-slate-500">
+                <span className="text-xs font-mono text-stone-500">
                   Seed: {selectedScenario.seed}
                 </span>
               </div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-base font-bold text-stone-900">
                 {selectedScenario.title}
               </h3>
-              <p className="text-xs text-slate-500 max-w-2xl leading-relaxed">
+              <p className="text-xs text-stone-500 max-w-2xl leading-relaxed">
                 {selectedScenario.description}
               </p>
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-right">
-                <div className="text-[11px] font-medium text-slate-500">
+              <div className="bg-[#faf8f5] border border-[#e5dfd5] rounded-lg p-3 text-right">
+                <div className="text-[11px] font-medium text-stone-500">
                   StallBreaker Net Economic Advantage
                 </div>
-                <div className="text-xl font-bold font-mono text-emerald-700">
+                <div className="text-xl font-bold font-mono text-emerald-800">
                   +${selectedScenario.stallbreaker_advantage_usd}
                 </div>
               </div>
@@ -276,9 +276,9 @@ export const BenchmarkEvaluationView: React.FC<BenchmarkEvaluationViewProps> = (
               {selectedScenario.replay_record_id && onSelectStage && (
                 <button
                   onClick={() => onSelectStage(8)}
-                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5"
+                  className="px-3.5 py-2 bg-[#f5f1e8] hover:bg-[#ede7dc] text-stone-800 border border-[#ded7c8] rounded-md text-xs font-medium transition-colors flex items-center gap-1.5"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                  <Sparkles className="w-3.5 h-3.5 text-amber-800" />
                   <span>Inspect in Recovery</span>
                 </button>
               )}
@@ -289,12 +289,12 @@ export const BenchmarkEvaluationView: React.FC<BenchmarkEvaluationViewProps> = (
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 font-semibold">
+                <tr className="border-b border-[#e5dfd5] bg-[#f5f1e8] text-stone-700 font-semibold">
                   <th className="py-2.5 px-3">Method</th>
                   <th className="py-2.5 px-3">Engine Tier</th>
                   <th className="py-2.5 px-3 text-right">Gross Labor ($)</th>
                   <th className="py-2.5 px-3 text-right">Lateness Pen ($)</th>
-                  <th className="py-2.5 px-3 text-right font-bold text-slate-900">Net Objective ($)</th>
+                  <th className="py-2.5 px-3 text-right font-bold text-stone-900">Net Objective ($)</th>
                   <th className="py-2.5 px-3 text-center">On-Time %</th>
                   <th className="py-2.5 px-3 text-center">Bay Util %</th>
                   <th className="py-2.5 px-3 text-right">Idle Time</th>
@@ -304,7 +304,7 @@ export const BenchmarkEvaluationView: React.FC<BenchmarkEvaluationViewProps> = (
                   <th className="py-2.5 px-3 text-center">Audit</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-mono">
+              <tbody className="divide-y divide-[#eee8df] font-mono">
                 {Object.entries(selectedScenario.methods).map(([methodKey, m]) => {
                   const isStallBreaker = methodKey === 'STALLBREAKER';
 
@@ -313,19 +313,19 @@ export const BenchmarkEvaluationView: React.FC<BenchmarkEvaluationViewProps> = (
                       key={methodKey}
                       className={`transition-colors ${
                         isStallBreaker
-                          ? 'bg-blue-50/50 text-slate-900 font-semibold'
-                          : 'text-slate-700 hover:bg-slate-50'
+                          ? 'bg-[#ede7dc]/60 text-stone-900 font-semibold'
+                          : 'text-stone-700 hover:bg-[#faf8f5]'
                       }`}
                     >
                       <td className="py-3 px-3 flex items-center gap-2">
                         {isStallBreaker ? (
-                          <span className="w-2 h-2 rounded-full bg-blue-600" />
+                          <span className="w-2 h-2 rounded-full bg-stone-900" />
                         ) : (
-                          <span className="w-2 h-2 rounded-full bg-slate-300" />
+                          <span className="w-2 h-2 rounded-full bg-stone-300" />
                         )}
-                        <span className="font-bold font-sans text-slate-900">{methodKey}</span>
+                        <span className="font-bold font-sans text-stone-900">{methodKey}</span>
                       </td>
-                      <td className="py-3 px-3 text-slate-500 font-sans text-xs">
+                      <td className="py-3 px-3 text-stone-500 font-sans text-xs">
                         {methodKey === 'FIFO'
                           ? 'T1 Heuristic'
                           : methodKey === 'EDF'
@@ -334,30 +334,30 @@ export const BenchmarkEvaluationView: React.FC<BenchmarkEvaluationViewProps> = (
                           ? 'T2 CP-SAT'
                           : 'T2 + Event Recovery'}
                       </td>
-                      <td className="py-3 px-3 text-right text-slate-800">${m.gross_contribution_usd}</td>
-                      <td className="py-3 px-3 text-right text-rose-700">-${m.weighted_lateness_penalty_usd}</td>
-                      <td className={`py-3 px-3 text-right font-bold text-xs ${isStallBreaker ? 'text-emerald-700' : 'text-slate-900'}`}>
+                      <td className="py-3 px-3 text-right text-stone-800">${m.gross_contribution_usd}</td>
+                      <td className="py-3 px-3 text-right text-rose-800">-${m.weighted_lateness_penalty_usd}</td>
+                      <td className={`py-3 px-3 text-right font-bold text-xs ${isStallBreaker ? 'text-emerald-800' : 'text-stone-900'}`}>
                         ${m.net_objective_usd}
                       </td>
                       <td className="py-3 px-3 text-center">{m.on_time_delivery_rate}%</td>
                       <td className="py-3 px-3 text-center">{m.bay_utilisation_rate}%</td>
                       <td className="py-3 px-3 text-right">{m.workshop_idle_minutes} min</td>
-                      <td className="py-3 px-3 text-center text-slate-500">{m.recovery_plan_churn}</td>
-                      <td className="py-3 px-3 text-right text-slate-500">{m.solve_time_ms} ms</td>
+                      <td className="py-3 px-3 text-center text-stone-500">{m.recovery_plan_churn}</td>
+                      <td className="py-3 px-3 text-right text-stone-500">{m.solve_time_ms} ms</td>
                       <td className="py-3 px-3 text-center">
                         {m.constraint_violations === 0 ? (
-                          <span className="text-emerald-700 font-bold">0</span>
+                          <span className="text-emerald-800 font-bold">0</span>
                         ) : (
-                          <span className="text-rose-700 font-bold">{m.constraint_violations}</span>
+                          <span className="text-rose-800 font-bold">{m.constraint_violations}</span>
                         )}
                       </td>
                       <td className="py-3 px-3 text-center">
                         {m.is_verified ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          <span className="inline-flex items-center gap-1 text-[11px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                             <CheckCircle2 className="w-3 h-3 text-emerald-600" /> PASS
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                          <span className="inline-flex items-center gap-1 text-[11px] text-rose-800 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
                             <AlertTriangle className="w-3 h-3 text-rose-600" /> FAIL
                           </span>
                         )}
@@ -372,9 +372,9 @@ export const BenchmarkEvaluationView: React.FC<BenchmarkEvaluationViewProps> = (
       )}
 
       {/* Academic Methodology Callout */}
-      <div className="bg-slate-50 border border-slate-200 rounded-lg p-5 space-y-2 text-xs text-slate-600">
-        <div className="flex items-center gap-2 text-slate-900 font-semibold">
-          <Info className="w-4 h-4 text-slate-500" />
+      <div className="bg-[#faf8f5] border border-[#e5dfd5] rounded-lg p-5 space-y-2 text-xs text-stone-600">
+        <div className="flex items-center gap-2 text-stone-900 font-semibold">
+          <Info className="w-4 h-4 text-stone-500" />
           <span>Evaluation Methodology & Null-Control Safeguards</span>
         </div>
         <p className="leading-relaxed">

@@ -22,7 +22,7 @@ export const NavigationTabs: React.FC = () => {
   const { activeSection, setActiveSection } = useAppState();
 
   return (
-    <nav className="border-b border-slate-200 bg-white shadow-xs overflow-x-auto">
+    <nav className="border-b border-[#e5dfd5] bg-[#faf8f5] shadow-xs overflow-x-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between py-2 min-w-max">
           {/* Primary Operations Sections */}
@@ -36,13 +36,13 @@ export const NavigationTabs: React.FC = () => {
                   onClick={() => setActiveSection(section.id)}
                   className={`group flex items-center gap-2 px-3.5 py-2 text-xs rounded-md transition-all ${
                     isActive
-                      ? 'bg-blue-50 text-blue-800 font-semibold border border-blue-200/80 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70 font-medium'
+                      ? 'bg-[#eae3d5] text-stone-900 font-semibold border border-[#d8cebd] shadow-xs'
+                      : 'text-stone-600 hover:text-stone-900 hover:bg-[#ede7dc]/60 font-medium'
                   }`}
                 >
                   <Icon
                     className={`w-3.5 h-3.5 ${
-                      isActive ? 'text-blue-700' : 'text-slate-400 group-hover:text-slate-600'
+                      isActive ? 'text-stone-900' : 'text-stone-400 group-hover:text-stone-600'
                     }`}
                   />
                   <span>{section.label}</span>
@@ -52,7 +52,7 @@ export const NavigationTabs: React.FC = () => {
           </div>
 
           {/* Secondary Evaluation Suite */}
-          <div className="flex items-center pl-4 border-l border-slate-200">
+          <div className="flex items-center pl-4 border-l border-[#ded7c8]">
             {NAV_SECTIONS.filter((s) => s.isSecondary).map((section) => {
               const isActive = section.id === activeSection;
               const Icon = section.icon;
@@ -62,13 +62,13 @@ export const NavigationTabs: React.FC = () => {
                   onClick={() => setActiveSection(section.id)}
                   className={`group flex items-center gap-2 px-3 py-1.5 text-xs rounded-md transition-all ${
                     isActive
-                      ? 'bg-slate-100 text-slate-900 font-semibold border border-slate-300 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-medium'
+                      ? 'bg-[#eae3d5] text-stone-900 font-semibold border border-[#d8cebd] shadow-xs'
+                      : 'text-stone-500 hover:text-stone-800 hover:bg-[#ede7dc]/50 font-medium'
                   }`}
                 >
-                  <Icon className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600" />
+                  <Icon className="w-3.5 h-3.5 text-stone-400 group-hover:text-stone-600" />
                   <span>{section.label}</span>
-                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
+                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#eee8dc] text-stone-600 border border-[#ded7c8]">
                     Suite
                   </span>
                 </button>

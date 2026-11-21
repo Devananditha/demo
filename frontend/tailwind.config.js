@@ -7,6 +7,18 @@ export default {
   theme: {
     extend: {
       colors: {
+        beige: {
+          50: '#faf8f5',
+          100: '#f5f2ea',
+          200: '#ebe5d8',
+          300: '#ded5c2',
+          400: '#cfc2a8',
+          500: '#bfae8e',
+          600: '#a89472',
+          700: '#8c7a5c',
+          800: '#73644d',
+          900: '#5e523f',
+        },
         brand: {
           50: '#eff6ff',
           100: '#dbeafe',
@@ -22,10 +34,11 @@ export default {
         },
         surface: {
           DEFAULT: '#ffffff',
-          subtle: '#f8fafc',
-          muted: '#f1f5f9',
-          border: '#e2e8f0',
-          dark: '#0f172a',
+          beige: '#f5f2ea',
+          card: '#ffffff',
+          inset: '#f0ebdf',
+          border: '#e5dfd5',
+          subtle: '#ebe5d8',
         }
       },
       fontFamily: {
@@ -33,8 +46,8 @@ export default {
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
       boxShadow: {
-        xs: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-        card: '0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px 0 rgba(0, 0, 0, 0.04)',
+        xs: '0 1px 2px 0 rgba(0, 0, 0, 0.04)',
+        card: '0 1px 3px 0 rgba(60, 50, 30, 0.05), 0 1px 2px 0 rgba(60, 50, 30, 0.03)',
       }
     },
   },
