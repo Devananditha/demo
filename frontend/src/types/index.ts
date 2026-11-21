@@ -241,3 +241,103 @@ export interface RecoveryRecommendationResponse {
   generated_at: string;
   replan_duration_ms: number;
 }
+
+export type StallBreakerEventType =
+  | 'RO_LINE_READY'
+  | 'RO_OPENED'
+  | 'PARTS_ETA_CHANGED'
+  | 'PART_UNAVAILABLE'
+  | 'BAY_RESERVATION_CHANGED'
+  | 'TECHNICIAN_UNAVAILABLE'
+  | 'OPERATION_COMPLETED';
+
+export interface StoredEvent {
+  event_id: string;
+  rooftop_id: string;
+  event_type: StallBreakerEventType;
+  entity_type: string;
+  entity_id: string;
+  payload: Record<string, any>;
+  occurred_at: string;
+  ingested_at: string;
+  signature?: string | null;
+  snapshot_hash_before: string;
+  snapshot_hash_after: string;
+}
+
+export interface EventIngestResponse {
+  status: string;
+  event_id: string;
+  is_duplicate: boolean;
+  previous_snapshot_hash: string;
+  new_snapshot_hash: string;
+  requires_recovery: boolean;
+  disruption_summary?: string | null;
+  ingested_at: string;
+}
+
+export interface StallBreakerDisruptionAnalysis {
+  event_id: string;
+  event_type: StallBreakerEventType;
+  disrupted_ro_ids: string[];
+  affected_bay_ids: string[];
+  affected_tech_ids: string[];
+  invalidated_task_ids: string[];
+  is_schedule_invalidated: boolean;
+  constraint_violations_detected: string[];
+  impact_summary: string;
+  analyzed_at: string;
+}
+
+export interface StallBreakerCandidateAction {
+  action_id: string;
+  action_type: string;
+  target_ro_id: string;
+  target_task_id?: string | null;
+  source_bay_id?: string | null;
+  target_bay_id?: string | null;
+  source_tech_id?: string | null;
+  target_tech_id?: string | null;
+  sourcing_offer_id?: string | null;
+  freight_surcharge_usd: string;
+  is_feasible: boolean;
+  rejection_reason?: string | null;
+  description: string;
+}
+
+export interface StallBreakerRecoveryReport {
+  event_id: string;
+  event_type: StallBreakerEventType;
+  disruption_analysis: StallBreakerDisruptionAnalysis;
+  candidate_actions: StallBreakerCandidateAction[];
+  evaluated_alternatives: RecoveryAlternativeReport[];
+  recommended_action?: StallBreakerCandidateAction | null;
+  recommended_plan_id?: string | null;
+  baseline_plan_id: string;
+  is_recovery_feasible: boolean;
+  infeasibility_reason?: string | null;
+  decision_replay?: DecisionReplayDiff | null;
+  explainability?: DecisionExplainability | null;
+  solve_time_ms: number;
+  generated_at: string;
+}
+
+export interface OutboxEvent {
+  event_id: string;
+  event_type: string;
+  aggregate_id: string;
+  payload: Record<string, any>;
+  occurred_at: string;
+}
+
+export interface CommitResult {
+  status: string;
+  plan_id: string;
+  committed_at?: string | null;
+  expected_hash: string;
+  current_hash?: string | null;
+  outbox_events_dispatched: number;
+  outbox_events?: OutboxEvent[];
+  error_code?: string | null;
+  message?: string | null;
+}

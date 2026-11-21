@@ -67,6 +67,13 @@ export const STAGES: StageInfo[] = [
     status: 'active',
     description: 'Executive synthesis of constraint-aware economic intelligence, bay shadow pricing, and audit status.',
   },
+  {
+    id: 8,
+    name: 'StallBreaker Disruption & Recovery',
+    shortLabel: '8. StallBreaker',
+    status: 'active',
+    description: 'Event-driven telemetry ingestion, real-time disruption analysis, CP-SAT multi-alternative recovery, and Decision Replay.',
+  },
 ];
 
 export const MOCK_REPAIR_ORDERS: RepairOrder[] = [
