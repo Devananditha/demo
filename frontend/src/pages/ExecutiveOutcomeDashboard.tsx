@@ -258,14 +258,14 @@ export const ExecutiveOutcomeDashboard: React.FC<ExecutiveOutcomeDashboardProps>
               </div>
               <div className="flex justify-between text-orange-400 font-bold">
                 <span>Parts Usable:</span>
-                <span>4:30 PM (Tick {baseline.usableReadyTick})</span>
+                <span>4:30 PM</span>
               </div>
             </div>
 
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              Parts arrive 30 minutes after RO-104’s customer promise of 4:00 PM (Tick 192). With 120 minutes of remaining
+              Parts arrive 30 minutes after RO-104’s customer promise of 4:00 PM. With 120 minutes of remaining
               reassembly work (TASK-104-02), the procedure cannot fit into the 30-minute standard operating window before
-              shift end at 5:00 PM (Tick 204).
+              shift end at 5:00 PM.
             </p>
           </div>
 
@@ -287,7 +287,7 @@ export const ExecutiveOutcomeDashboard: React.FC<ExecutiveOutcomeDashboardProps>
             <div className="bg-[#111522] border border-[#1e2638] rounded p-2.5 space-y-1.5 text-xs font-mono">
               <div className="flex justify-between text-slate-400">
                 <span>Quoted ETA:</span>
-                <span className="text-slate-200">1:35 PM (Tick {alternative.quotedEtaTick})</span>
+                <span className="text-slate-200">1:35 PM</span>
               </div>
               <div className="flex justify-between text-slate-400">
                 <span>Receiving Inspection:</span>
@@ -295,7 +295,7 @@ export const ExecutiveOutcomeDashboard: React.FC<ExecutiveOutcomeDashboardProps>
               </div>
               <div className="flex justify-between text-purple-300 font-bold">
                 <span>Parts Usable:</span>
-                <span>1:45 PM (Tick {alternative.usableReadyTick})</span>
+                <span>1:45 PM</span>
               </div>
             </div>
 
@@ -364,7 +364,7 @@ export const ExecutiveOutcomeDashboard: React.FC<ExecutiveOutcomeDashboardProps>
               </span>
             </div>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              Empirical-Bayes parts lead-time distributions and readiness risk quantiles evaluated at tick 159.
+              Empirical-Bayes parts lead-time distributions and readiness risk quantiles evaluated at 1:15 PM.
             </p>
           </div>
 

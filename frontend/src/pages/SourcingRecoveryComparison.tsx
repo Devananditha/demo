@@ -180,7 +180,7 @@ export const SourcingRecoveryComparison: React.FC<SourcingRecoveryComparisonProp
             </p>
           </div>
           <span className="text-[10px] font-mono text-slate-400 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
-            Task Duration: 120 min &bull; Promise: 4:00 PM (Tick 192)
+            Task Duration: 120 min &bull; Promise: 4:00 PM
           </span>
         </div>
 
@@ -206,15 +206,15 @@ export const SourcingRecoveryComparison: React.FC<SourcingRecoveryComparisonProp
               <div className="bg-[#0d101a] border border-[#1b2234] rounded-lg divide-y divide-[#1b2234] text-xs font-mono">
                 <div className="p-2.5 flex items-center justify-between">
                   <span className="text-slate-400">Quoted Delivery ETA</span>
-                  <span className="text-slate-200 font-bold">4:10 PM (Tick {baseline.quotedEtaTick})</span>
+                  <span className="text-slate-200 font-bold">4:10 PM</span>
                 </div>
                 <div className="p-2.5 flex items-center justify-between">
                   <span className="text-slate-400">Receiving / Quality Inspection</span>
-                  <span className="text-slate-200 font-bold">{baseline.receivingInspectionMinutes} minutes (4 ticks)</span>
+                  <span className="text-slate-200 font-bold">{baseline.receivingInspectionMinutes} minutes</span>
                 </div>
                 <div className="p-2.5 flex items-center justify-between bg-orange-950/20">
                   <span className="text-orange-400 font-medium">Usable-Ready Time</span>
-                  <span className="text-orange-300 font-bold">{baseline.usableReadyTime} (Tick {baseline.usableReadyTick})</span>
+                  <span className="text-orange-300 font-bold">{baseline.usableReadyTime}</span>
                 </div>
                 <div className="p-2.5 flex items-center justify-between">
                   <span className="text-slate-400">Incremental Freight Cost</span>
@@ -222,17 +222,17 @@ export const SourcingRecoveryComparison: React.FC<SourcingRecoveryComparisonProp
                 </div>
                 <div className="p-2.5 flex items-center justify-between">
                   <span className="text-slate-400">RO-104 Customer Promise Ref</span>
-                  <span className="text-amber-400 font-bold">4:00 PM (Tick 192)</span>
+                  <span className="text-amber-400 font-bold">4:00 PM</span>
                 </div>
                 <div className="p-2.5 flex items-center justify-between">
                   <span className="text-slate-400">Remaining Task Duration (TASK-104-02)</span>
-                  <span className="text-slate-200 font-bold">120 minutes (24 ticks)</span>
+                  <span className="text-slate-200 font-bold">120 minutes</span>
                 </div>
               </div>
             </div>
 
             <div className="pt-2 border-t border-[#1e2638] text-[11px] text-slate-400">
-              <span className="text-amber-400 font-semibold">Timing Observation:</span> Usable parts arrive at 4:30 PM (Tick 198),
+              <span className="text-amber-400 font-semibold">Timing Observation:</span> Usable parts arrive at 4:30 PM,
               which falls after the 4:00 PM customer promise deadline.
             </div>
           </div>
@@ -258,15 +258,15 @@ export const SourcingRecoveryComparison: React.FC<SourcingRecoveryComparisonProp
               <div className="bg-[#0d101a] border border-[#1b2234] rounded-lg divide-y divide-[#1b2234] text-xs font-mono">
                 <div className="p-2.5 flex items-center justify-between">
                   <span className="text-slate-400">Quoted Delivery ETA</span>
-                  <span className="text-purple-300 font-bold">1:35 PM (Tick {alternative.quotedEtaTick})</span>
+                  <span className="text-purple-300 font-bold">1:35 PM</span>
                 </div>
                 <div className="p-2.5 flex items-center justify-between">
                   <span className="text-slate-400">Receiving / Quality Inspection</span>
-                  <span className="text-purple-300 font-bold">{alternative.receivingInspectionMinutes} minutes (2 ticks)</span>
+                  <span className="text-purple-300 font-bold">{alternative.receivingInspectionMinutes} minutes</span>
                 </div>
                 <div className="p-2.5 flex items-center justify-between bg-purple-950/20">
                   <span className="text-purple-400 font-medium">Usable-Ready Time</span>
-                  <span className="text-purple-300 font-bold">{alternative.usableReadyTime} (Tick {alternative.usableReadyTick})</span>
+                  <span className="text-purple-300 font-bold">{alternative.usableReadyTime}</span>
                 </div>
                 <div className="p-2.5 flex items-center justify-between">
                   <span className="text-slate-400">Incremental Freight Cost</span>
@@ -274,17 +274,17 @@ export const SourcingRecoveryComparison: React.FC<SourcingRecoveryComparisonProp
                 </div>
                 <div className="p-2.5 flex items-center justify-between">
                   <span className="text-slate-400">RO-104 Customer Promise Ref</span>
-                  <span className="text-amber-400 font-bold">4:00 PM (Tick 192)</span>
+                  <span className="text-amber-400 font-bold">4:00 PM</span>
                 </div>
                 <div className="p-2.5 flex items-center justify-between">
                   <span className="text-slate-400">Remaining Task Duration (TASK-104-02)</span>
-                  <span className="text-slate-200 font-bold">120 minutes (24 ticks)</span>
+                  <span className="text-slate-200 font-bold">120 minutes</span>
                 </div>
               </div>
             </div>
 
             <div className="pt-2 border-t border-[#1e2638] text-[11px] text-slate-400">
-              <span className="text-purple-400 font-semibold">Timing Observation:</span> Usable parts arrive at 1:45 PM (Tick 165),
+              <span className="text-purple-400 font-semibold">Timing Observation:</span> Usable parts arrive at 1:45 PM,
               leaving a nominal 135-minute interval before the 4:00 PM customer promise.
             </div>
           </div>
@@ -318,10 +318,10 @@ export const SourcingRecoveryComparison: React.FC<SourcingRecoveryComparisonProp
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
               S2 carries <strong>no incremental freight surcharge</strong> ($0.00). However, baseline parts become usable at{' '}
-              <strong>4:30 PM (Tick 198)</strong>, while RO-104’s customer promise deadline is 4:00 PM (Tick 192).
+              <strong>4:30 PM</strong>, while RO-104’s customer promise deadline is 4:00 PM.
             </p>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Standard operating hours end at 5:00 PM (Tick 204) and the remaining task duration is 120 minutes.
+              Standard operating hours end at 5:00 PM and the remaining task duration is 120 minutes.
               Therefore, the remaining task cannot fit within the 30-minute standard operating window between parts arrival and shift end.
               (This is a factual timing comparison; no authorized overtime execution or completed schedule has been established.)
             </p>
@@ -334,11 +334,11 @@ export const SourcingRecoveryComparison: React.FC<SourcingRecoveryComparisonProp
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
               S1 incurs an <strong>additional $37.00 freight surcharge</strong>, but delivers a substantially earlier usable-ready
-              timestamp of <strong>1:45 PM (Tick 165)</strong> (30 minutes from alert detection at tick 159).
+              timestamp of <strong>1:45 PM</strong> (30 minutes from alert detection at 1:15 PM).
             </p>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Between 1:45 PM and the 4:00 PM promise deadline, there is a nominal interval of <strong>135 minutes (27 ticks)</strong>,
-              against a remaining task duration of 120 minutes (24 ticks).
+              Between 1:45 PM and the 4:00 PM promise deadline, there is a nominal interval of <strong>135 minutes</strong>,
+              against a remaining task duration of 120 minutes.
             </p>
           </div>
         </div>
@@ -445,7 +445,7 @@ export const SourcingRecoveryComparison: React.FC<SourcingRecoveryComparisonProp
             </p>
             <ul className="list-disc pl-5 space-y-1 text-slate-400">
               <li>
-                Under Option A, the replacement solenoid does not arrive until 4:30 PM (Tick 198), keeping BAY-01 physically
+                Under Option A, the replacement solenoid does not arrive until 4:30 PM, keeping BAY-01 physically
                 immobilized throughout the afternoon.
               </li>
               <li>

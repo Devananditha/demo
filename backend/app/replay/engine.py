@@ -150,14 +150,18 @@ class DecisionReplayEngine:
 
         if recommended:
             cand = recommended.sourcing_candidate
+            total_mins = cand.usable_ready_tick * 5
+            u_h, u_m = (total_mins // 60) % 24, total_mins % 60
+            usable_time_str = f"{u_h % 12 or 12}:{u_m:02d} {'AM' if u_h < 12 else 'PM'}"
+
             summary = (
-                f"Authorize Option {recommended.option_id} ({cand.supplier_name}) with usable parts at tick {cand.usable_ready_tick} "
+                f"Authorize Option {recommended.option_id} ({cand.supplier_name}) with usable parts ready at {usable_time_str} "
                 f"and ${cand.freight_surcharge_usd:.2f} freight. This unblocks {disruption.disrupted_ro_id} "
-                f"and produces a net economic delta of ${recommended.net_recovery_delta_usd:.2f} compared to the unmitigated baseline."
+                f"and produces a net economic improvement of +${recommended.net_recovery_delta_usd:.2f} compared to the unmitigated baseline."
             )
             driver = (
-                f"Expedited parts delivery releases immobilized vehicle {disruption.disrupted_ro_id} from specialized bay "
-                f"by tick 189, mitigating cascading downstream delays."
+                f"Expedited parts delivery releases immobilized vehicle {disruption.disrupted_ro_id} from specialized heavy lift "
+                f"by 3:45 PM, protecting customer delivery promise (4:00 PM) and admitting waiting vehicle RO-106."
             )
             obj_breakdown = {
                 "Gross Labor Contribution": f"${recommended.gross_contribution_usd:.2f}",
@@ -183,7 +187,7 @@ class DecisionReplayEngine:
                 "constraint": "C2",
                 "name": "Part Readiness & Usable Timing",
                 "status": "SATISFIED",
-                "evidence": f"Task execution strictly enforces usable_ready_tick (quoted ETA + inspection duration).",
+                "evidence": f"Parts usable timing verified: physical arrival ({usable_time_str}) plus mandatory receiving inspection completed prior to repair start.",
             },
             {
                 "constraint": "C3",
@@ -211,12 +215,12 @@ class DecisionReplayEngine:
             },
             {
                 "constraint": "C7",
-                "name": "Manager Authorization & OCC",
+                "name": "Manager Spending Policy & Authorization",
                 "status": "SATISFIED" if (recommended and recommended.sourcing_cost_usd <= Decimal("50.00")) else "PENDING_APPROVAL",
                 "evidence": (
-                    f"Cryptographic snapshot hash validated; expedited freight surcharge (${recommended.sourcing_cost_usd:.2f}) within authorized policy limit ($50.00)."
+                    f"Expedited freight surcharge (${recommended.sourcing_cost_usd:.2f}) within policy limit ($50.00 max). Pending manager authorization."
                     if (recommended and recommended.sourcing_cost_usd > Decimal("0.00"))
-                    else "Cryptographic snapshot hash validated; standard freight ($0.00) within policy authority."
+                    else "Standard freight ($0.00) within policy limit; no surcharge required."
                 ),
             },
         ]

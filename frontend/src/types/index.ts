@@ -340,6 +340,7 @@ export interface CommitResult {
   outbox_events?: OutboxEvent[];
   error_code?: string | null;
   message?: string | null;
+  approver_id?: string | null;
 }
 
 

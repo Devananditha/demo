@@ -119,10 +119,15 @@ export const VerificationApprovalView: React.FC = () => {
       return { status: 'unchecked' };
     }
     if (cId === 'C7') {
-      const evidence =
-        freightToAuthorize > 0
-          ? `Expedited freight ($${freightToAuthorize.toFixed(2)}) authorized within manager $50.00 limit`
-          : 'Standard ground freight ($0.00); no surcharge required';
+      const isCommitted = approvalResult?.status === 'COMMITTED';
+      let evidence: string;
+      if (isCommitted) {
+        evidence = `Expedited freight ($${freightToAuthorize.toFixed(2)}) approved & committed by ${approvalResult.approver_id || 'MGR-MARCUS'} for plan ${planToCommit}`;
+      } else if (freightToAuthorize > 0) {
+        evidence = `Expedited freight ($${freightToAuthorize.toFixed(2)}) within spending policy limit ($50.00 max) — Awaiting Manager Authorization`;
+      } else {
+        evidence = 'Standard ground freight ($0.00); no surcharge required';
+      }
       return {
         status: freightToAuthorize <= 50.0 ? 'pass' : 'fail',
         evidence,
@@ -257,84 +262,108 @@ export const VerificationApprovalView: React.FC = () => {
       </div>
 
       {/* Approval Section — Unlocked upon 7/7 Pass */}
-      {allPass && (
-        <div className="bg-white border-2 border-emerald-600 rounded-lg p-5 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-[#eee8df] pb-3">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-              <h3 className="text-sm font-semibold text-stone-900">Verification Clearance Granted — Manager Authority Gate</h3>
-            </div>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded bg-emerald-50 text-emerald-900 border border-emerald-200">
-              7 / 7 PASSED
-            </span>
-          </div>
-          <p className="text-xs text-stone-600 leading-relaxed">
-            All physical, temporal, and resource constraints have been independently audited and certified.
-            The Service Manager can now commit this plan and dispatch parts procurement.
-          </p>
-
-          <div className="p-4 bg-[#faf8f5] border border-[#e5dfd5] rounded-lg flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="space-y-0.5 text-left">
-              <div className="text-xs font-bold text-stone-900">Authorize Freight & Commit Optimal Dispatch</div>
-              <div className="text-xs text-stone-600">
-                Plan: <strong className="font-mono text-stone-900">{planToCommit}</strong> &bull; Approver: <strong className="text-stone-900">MGR-MARCUS</strong> &bull; Surcharge: <strong className="text-emerald-800 font-mono font-bold">${freightToAuthorize.toFixed(2)}</strong> (Authorized Limit: $50.00)
+      {allPass && (() => {
+        const isCommitted = approvalResult?.status === 'COMMITTED';
+        return (
+          <div className={`bg-white border-2 rounded-lg p-5 shadow-xs space-y-4 ${
+            isCommitted ? 'border-emerald-600' : 'border-stone-800'
+          }`}>
+            <div className="flex items-center justify-between border-b border-[#eee8df] pb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                <h3 className="text-sm font-semibold text-stone-900">
+                  {isCommitted
+                    ? 'Recovery Plan Committed & Dispatched'
+                    : 'Compliance Verified — Awaiting Manager Sign-Off'}
+                </h3>
               </div>
+              <span className={`text-xs font-semibold px-2.5 py-0.5 rounded border ${
+                isCommitted
+                  ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                  : 'bg-amber-50 text-amber-900 border-amber-200'
+              }`}>
+                {isCommitted ? 'DISPATCH COMMITTED' : '7 / 7 VERIFIED — PENDING APPROVAL'}
+              </span>
             </div>
 
-            <button
-              onClick={handleApprove}
-              disabled={approveLoading || approvalResult?.status === 'COMMITTED'}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-xs font-semibold shadow-xs transition-colors shrink-0 ${
-                approvalResult?.status === 'COMMITTED'
-                  ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 cursor-default'
-                  : 'bg-emerald-700 hover:bg-emerald-800 text-white'
-              }`}
-            >
-              {approvalResult?.status === 'COMMITTED' ? (
-                <><CheckCircle2 className="w-4 h-4 text-emerald-600" /> Committed & Dispatched</>
-              ) : approveLoading ? (
-                <><RefreshCw className="w-4 h-4 animate-spin" /> Committing Transaction…</>
-              ) : (
-                <><ShieldCheck className="w-4 h-4" /> Authorize & Commit Plan</>
-              )}
-            </button>
-          </div>
+            <p className="text-xs text-stone-600 leading-relaxed">
+              {isCommitted
+                ? 'The recovery plan has been formally authorized and committed to the shop floor schedule. Parts procurement and bay assignments are locked.'
+                : 'All physical, temporal, and resource constraints have been independently certified. Expedited surcharge complies with policy ($50.00 max) and awaits Service Manager authorization.'}
+            </p>
 
-          {approvalResult && (
-            <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-md space-y-2 text-xs">
-              <div className="flex items-center justify-between font-mono">
-                <span className="text-emerald-950 font-bold">
-                  TRANSACTION COMMITTED &bull; Status: {approvalResult.status}
-                </span>
-                <span className="text-emerald-800">
-                  {approvalResult.outbox_events_dispatched} Transactional Outbox Events Dispatched
-                </span>
-              </div>
-              {approvalResult.outbox_events && approvalResult.outbox_events.length > 0 && (
-                <div className="divide-y divide-emerald-200/60 text-xs text-stone-700 pt-1 font-mono">
-                  {approvalResult.outbox_events.map((evt, idx) => (
-                    <div key={idx} className="py-1 flex items-center justify-between">
-                      <span className="font-semibold text-stone-900">{evt.event_type}</span>
-                      <span className="text-stone-500">{evt.aggregate_id}</span>
-                    </div>
-                  ))}
+            <div className="p-4 bg-[#faf8f5] border border-[#e5dfd5] rounded-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="space-y-0.5 text-left">
+                <div className="text-xs font-bold text-stone-900">
+                  {isCommitted ? 'Authorized Recovery Surcharge' : 'Authorize Expedited Freight & Commit Dispatch'}
                 </div>
-              )}
+                <div className="text-xs text-stone-600">
+                  Plan: <strong className="font-mono text-stone-900">{planToCommit}</strong> &bull; Approver:{' '}
+                  <strong className="text-stone-900">MGR-MARCUS</strong> &bull; Surcharge:{' '}
+                  <strong className="text-emerald-800 font-mono font-bold">${freightToAuthorize.toFixed(2)}</strong>{' '}
+                  <span className="text-stone-500">(Spending Limit: $50.00)</span>
+                </div>
+              </div>
 
+              <button
+                onClick={handleApprove}
+                disabled={approveLoading || isCommitted}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-xs font-semibold shadow-xs transition-colors shrink-0 ${
+                  isCommitted
+                    ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 cursor-default'
+                    : 'bg-emerald-700 hover:bg-emerald-800 text-white'
+                }`}
+              >
+                {isCommitted ? (
+                  <><CheckCircle2 className="w-4 h-4 text-emerald-600" /> Authorized & Dispatched</>
+                ) : approveLoading ? (
+                  <><RefreshCw className="w-4 h-4 animate-spin" /> Committing Transaction…</>
+                ) : (
+                  <><ShieldCheck className="w-4 h-4" /> Authorize & Commit Plan</>
+                )}
+              </button>
+            </div>
+
+            {/* Collapsible Technical Audit & Outbox Payloads */}
+            <details className="text-xs text-stone-500 pt-1">
+              <summary className="cursor-pointer font-medium hover:text-stone-800">
+                Technical Audit Trail & Cryptographic State Verification
+              </summary>
+              <div className="mt-2 p-3 bg-white border border-[#e5dfd5] rounded font-mono text-[11px] space-y-1.5">
+                <div>Candidate Plan ID: <span className="text-stone-900">{planToCommit}</span></div>
+                <div>Snapshot OCC Hash: <span className="text-stone-900">{workshopState?.snapshot_hash}</span></div>
+                <div>Audit Engine: <span className="text-stone-900">L4 Sweep-Line Oracle (Zero Double-Booking Certified)</span></div>
+                {isCommitted && (
+                  <div className="pt-2 border-t border-[#ded7c8]">
+                    <div className="font-sans font-semibold text-stone-800 mb-1">
+                      Transactional Outbox Events ({approvalResult.outbox_events_dispatched} dispatched):
+                    </div>
+                    {approvalResult.outbox_events?.map((evt, idx) => (
+                      <div key={idx} className="flex justify-between py-0.5 text-stone-600">
+                        <span className="font-semibold text-stone-800">{evt.event_type}</span>
+                        <span>{evt.aggregate_id}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </details>
+
+            {isCommitted && (
               <div className="pt-2 flex justify-end">
                 <button
                   onClick={() => setActiveSection(5)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-medium shadow-xs transition-colors"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-medium shadow-xs transition-colors"
                 >
                   <TrendingUp className="w-3.5 h-3.5" />
                   <span>View Executive Performance Dashboard</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        );
+      })()}
 
       {/* Locked Approval Notice (Pre-Verification) */}
       {!allPass && (

@@ -56,7 +56,7 @@ export const RepairOrderTable: React.FC = () => {
             </span>
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Static benchmark snapshot with fixture-validated reference classifications (evaluation tick 159) from canonical fixture (s_math_01).
+            Static benchmark snapshot with fixture-validated reference classifications (evaluation time 1:15 PM) from canonical fixture (s_math_01).
           </p>
         </div>
       </div>

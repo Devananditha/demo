@@ -330,7 +330,7 @@ export const ReadinessRiskDetail: React.FC = () => {
                 </p>
               </div>
               <div className="text-xs font-mono text-slate-400">
-                Evaluation Ref: <span className="text-white">Tick 159 (1:15 PM)</span>
+                Evaluation Ref: <span className="text-white">1:15 PM</span>
               </div>
             </div>
 
@@ -504,7 +504,7 @@ export const ReadinessRiskDetail: React.FC = () => {
                 Predict Layer 1 API Source: POST /api/v1/predict/readiness &bull; Snapshot: {report.snapshot_hash.slice(0, 16)}...
               </div>
               <div className="text-[11px] text-slate-500 font-mono">
-                Fixed Reference Evaluation: 1:15 PM UTC (Tick 159) &bull; Static Synthetic Snapshot
+                Fixed Reference Evaluation: 1:15 PM &bull; Static Synthetic Snapshot
               </div>
             </div>
           </div>

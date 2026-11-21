@@ -2,7 +2,7 @@ import React from 'react';
 import { KpiCards } from '../components/KpiCards';
 import { RepairOrderTable } from '../components/RepairOrderTable';
 import { Info } from 'lucide-react';
-import { EVALUATION_TICK, OPERATING_DAY_END_TICK, OVERTIME_CUTOFF_TICK, SHARED_SNAPSHOT_TIME } from '../data/mockData';
+import { SHARED_SNAPSHOT_TIME } from '../data/mockData';
 
 export const ControlTower: React.FC = () => {
   return (
@@ -33,7 +33,7 @@ export const ControlTower: React.FC = () => {
             <Info className="w-4 h-4 text-cyan-400 flex-shrink-0" />
             <div className="text-slate-300 font-mono">
               <span className="text-white font-medium">Timeline: </span>
-              Evaluation Tick {EVALUATION_TICK} ({SHARED_SNAPSHOT_TIME}) &bull; Operating End Tick {OPERATING_DAY_END_TICK} (5:00 PM) &bull; Overtime Cutoff Tick {OVERTIME_CUTOFF_TICK} (7:00 PM)
+              Current Shift: {SHARED_SNAPSHOT_TIME} &bull; Regular Shift End: 5:00 PM &bull; Overtime Cutoff: 7:00 PM
             </div>
           </div>
         </div>

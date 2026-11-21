@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { fetchCanonicalState } from '../api/predictClient';
 import { DealershipStateItem, DealershipStateResponse } from '../types';
+import { tickToTime } from '../utils/timeUtils';
 import {
   Clock,
   Layers,
@@ -128,7 +129,7 @@ export const BaselineCapacityBoard: React.FC = () => {
               Baseline physical-state snapshot — before optimisation. No new schedule has been generated.
             </span>
             <span className="text-slate-400 block text-[11px] mt-0.5">
-              Depicts frozen baseline physical stall occupancies at evaluation tick 159. No CP-SAT solver,
+              Depicts frozen baseline physical stall occupancies at evaluation time 1:15 PM. No CP-SAT solver,
               T1 heuristic re-sequencing, or recovery courier dispatch has altered this operational state.
             </span>
           </div>
@@ -150,15 +151,15 @@ export const BaselineCapacityBoard: React.FC = () => {
               </span>
               <span className="text-slate-300">
                 <span className="text-slate-500">Eval Window:</span>{' '}
-                <span className="text-emerald-400 font-bold">Tick {stateData.evaluation_tick} (1:15 PM)</span>
+                <span className="text-emerald-400 font-bold">{tickToTime(stateData.evaluation_tick)}</span>
               </span>
               <span className="text-slate-300">
                 <span className="text-slate-500">Operating End:</span>{' '}
-                <span>Tick {stateData.operating_day_end_tick} (5:00 PM)</span>
+                <span>{tickToTime(stateData.operating_day_end_tick)}</span>
               </span>
               <span className="text-slate-300">
                 <span className="text-slate-500">Overtime Cutoff:</span>{' '}
-                <span>Tick {stateData.overtime_cutoff_tick} (7:00 PM)</span>
+                <span>{tickToTime(stateData.overtime_cutoff_tick)}</span>
               </span>
             </div>
 
@@ -386,7 +387,7 @@ export const BaselineCapacityBoard: React.FC = () => {
 
                           <div className="text-[11px] font-mono text-slate-400 flex items-center justify-between">
                             <span>Promised Delivery:</span>
-                            <span className="text-slate-200">Tick {assigned.promise_tick}</span>
+                            <span className="text-slate-200">{tickToTime(assigned.promise_tick)}</span>
                           </div>
 
                           {isImmobilized && (
@@ -475,7 +476,7 @@ export const BaselineCapacityBoard: React.FC = () => {
 
                       {/* Promised Delivery */}
                       <td className="py-3.5 px-4 whitespace-nowrap font-mono text-xs text-slate-300">
-                        Tick {ro.promise_tick}
+                        {tickToTime(ro.promise_tick)}
                       </td>
 
                       {/* Operational Condition */}

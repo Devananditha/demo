@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   TrendingUp,
-  Truck,
   ArrowRight,
   ShieldCheck,
 } from 'lucide-react';
@@ -243,37 +242,53 @@ export const RecoveryDecisionsView: React.FC = () => {
               )}
 
               {/* Recommendation Overview Callout */}
-              <div className="p-4 bg-[#faf8f5] border border-[#e5dfd5] rounded-lg space-y-2">
+              <div className="p-4 bg-[#faf8f5] border border-[#e5dfd5] rounded-lg space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2 text-stone-900 font-semibold text-sm">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>Optimal Dispatch Recommendation:</span>
-                    <span className="font-mono text-stone-900">{planId}</span>
+                    <span>Recommended Recovery Action:</span>
+                    <span className="font-semibold text-stone-900">{supplierName}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-[#e8e2d5] text-stone-800 border border-[#ded7c8]">
-                      {solverTier} &bull; {solverStatus}
-                    </span>
-                    <span className="px-2.5 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-900 border border-emerald-200">
-                      Constraint-Feasible & Verified
-                    </span>
-                  </div>
+                  <span className="px-2.5 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-900 border border-emerald-200">
+                    Verified & Constraint-Feasible
+                  </span>
                 </div>
+
                 <p className="text-xs text-stone-700 leading-relaxed">
                   {recoveryReport.recommended_action?.description ||
-                    `Approved ${supplierName} sourcing alternative to rescue RO-104 and unblock BAY-01.`}
+                    `Authorize expedited courier delivery for RO-104 shift solenoid valve. Parts ready at 1:45 PM; repair completes at 3:45 PM, beating customer promise and freeing heavy diagnostic lift BAY-01 for RO-106.`}
                 </p>
-                <div className="flex flex-wrap items-center gap-4 text-xs text-stone-600 pt-2 border-t border-[#ded7c8]">
-                  <div className="flex items-center gap-1.5">
-                    <Truck className="w-3.5 h-3.5 text-stone-500" />
-                    <span>Supplier: <strong className="text-stone-900">{supplierName}</strong></span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-[#ded7c8] text-xs">
+                  <div>
+                    <span className="text-stone-500 block">Parts Usable-Ready:</span>
+                    <span className="font-semibold text-emerald-800">1:45 PM</span>
+                    <span className="text-[11px] text-stone-500 block">(135 min before 4:00 PM promise)</span>
                   </div>
                   <div>
-                    <span>Freight Surcharge: </span>
-                    <span className="text-stone-900 font-mono font-bold">${freightUsd.toFixed(2)}</span>
-                    <span className="text-stone-500 ml-1">(Within manager $50.00 approval authority)</span>
+                    <span className="text-stone-500 block">Estimated Completion:</span>
+                    <span className="font-semibold text-emerald-800">3:45 PM</span>
+                    <span className="text-[11px] text-stone-500 block">(15 min ahead of schedule)</span>
+                  </div>
+                  <div>
+                    <span className="text-stone-500 block">Expedited Surcharge:</span>
+                    <span className="font-mono font-bold text-stone-900">${freightUsd.toFixed(2)}</span>
+                    <span className="text-[11px] text-stone-500 block">(Within $50.00 manager authority)</span>
                   </div>
                 </div>
+
+                {/* Collapsible Engineering Diagnostics */}
+                <details className="pt-2 border-t border-[#ded7c8] text-xs text-stone-500">
+                  <summary className="cursor-pointer font-medium hover:text-stone-800">
+                    Engineering Diagnostics & Mathematical Solver Details
+                  </summary>
+                  <div className="mt-2 p-2.5 bg-white border border-[#e5dfd5] rounded font-mono text-[11px] space-y-1">
+                    <div>Candidate Plan: <span className="text-stone-900 font-semibold">{planId}</span></div>
+                    <div>Solver Tier: <span className="text-stone-900">{solverTier}</span></div>
+                    <div>Mathematical Status: <span className="text-stone-900">{solverStatus}</span></div>
+                    <div>Disruption Entity: <span className="text-stone-900">RO-104 (PART-REQ-104-SOLENOID)</span></div>
+                  </div>
+                </details>
               </div>
 
               {/* Decision Replay: Verified Economic Impact Metrics */}
@@ -308,19 +323,19 @@ export const RecoveryDecisionsView: React.FC = () => {
                     </div>
 
                     <div className="p-3 bg-[#faf8f5] border border-[#e5dfd5] rounded-md">
-                      <div className="text-[11px] font-medium text-stone-500">BAY-01 Utilization</div>
+                      <div className="text-[11px] font-medium text-stone-500">BAY-01 Lift Gain</div>
                       <div className="text-sm font-bold text-stone-900 font-mono mt-1">
-                        +{recoveryReport.decision_replay.delta_bay_utilization_pct.toFixed(1)}%
+                        +{recoveryReport.decision_replay.delta_bay_utilization_pct.toFixed(1)} pp
                       </div>
-                      <div className="text-[10px] text-stone-500">Active lift uptime</div>
+                      <div className="text-[10px] text-stone-500">Percentage points recovered</div>
                     </div>
 
                     <div className="p-3 bg-[#faf8f5] border border-[#e5dfd5] rounded-md">
-                      <div className="text-[11px] font-medium text-stone-500">Dead Lift Avoided</div>
+                      <div className="text-[11px] font-medium text-stone-500">Idle Time Avoided</div>
                       <div className="text-sm font-bold text-emerald-800 font-mono mt-1">
-                        {recoveryReport.decision_replay.delta_idle_minutes} min
+                        {Math.abs(recoveryReport.decision_replay.delta_idle_minutes)} min
                       </div>
-                      <div className="text-[10px] text-stone-500">Wasted stall hours freed</div>
+                      <div className="text-[10px] text-stone-500">165 minutes of idle time avoided</div>
                     </div>
 
                     <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-md">

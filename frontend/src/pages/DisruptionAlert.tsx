@@ -46,8 +46,8 @@ export const DisruptionAlert: React.FC<DisruptionAlertProps> = ({ onSelectStage 
               Supplier ETA Slip & Workshop Bottleneck Cascade
             </h2>
             <p className="text-xs text-slate-400 max-w-3xl leading-relaxed">
-              Demonstrates synthetic disruption replay from canonical S-MATH-01 fixture at evaluation tick{' '}
-              <span className="text-cyan-300 font-mono font-semibold">159 (1:15 PM)</span>. Explains how an inbound
+              Demonstrates synthetic disruption replay from canonical S-MATH-01 fixture at evaluation time{' '}
+              <span className="text-cyan-300 font-mono font-semibold">1:15 PM</span>. Explains how an inbound
               supplier freight slip propagates into a severe physical lift stall and holding queue dependency.
             </p>
           </div>
@@ -120,7 +120,7 @@ export const DisruptionAlert: React.FC<DisruptionAlertProps> = ({ onSelectStage 
                   <span>Detection Timestamp</span>
                 </div>
                 <div className="text-xs font-mono font-bold text-cyan-300">
-                  {scenario.triggerTime} (Tick {scenario.triggerTick})
+                  {scenario.triggerTime}
                 </div>
                 <div className="text-[10px] text-slate-500">Evaluation Horizon</div>
               </div>
@@ -221,24 +221,24 @@ export const DisruptionAlert: React.FC<DisruptionAlertProps> = ({ onSelectStage 
                 <div>
                   <div className="text-[10px] text-slate-500 uppercase">Quoted ETA</div>
                   <div className="font-bold text-slate-300">4:10 PM</div>
-                  <div className="text-[9px] text-slate-500">Tick {baseline.quotedEtaTick}</div>
+                  <div className="text-[9px] text-slate-500">Ground delivery</div>
                 </div>
                 <div>
                   <div className="text-[10px] text-slate-500 uppercase">Inspection</div>
                   <div className="font-bold text-slate-300">20 min</div>
-                  <div className="text-[9px] text-slate-500">+4 ticks</div>
+                  <div className="text-[9px] text-slate-500">Standard intake</div>
                 </div>
                 <div>
                   <div className="text-[10px] text-orange-400 uppercase font-bold">Usable Ready</div>
                   <div className="font-bold text-orange-300">{baseline.usableReadyTime}</div>
-                  <div className="text-[9px] text-orange-400/80">Tick {baseline.usableReadyTick}</div>
+                  <div className="text-[9px] text-orange-400/80">Shop-floor ready</div>
                 </div>
               </div>
 
               <div className="space-y-2 text-xs">
                 <div className="flex items-center space-x-1.5 text-amber-400 font-medium">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>Promise Comparison: Usable parts (4:30 PM) arrive after promise tick 192 (4:00 PM)</span>
+                  <span>Promise Comparison: Usable parts (4:30 PM) arrive after customer promise (4:00 PM)</span>
                 </div>
                 <p className="text-[11px] text-slate-300 leading-relaxed bg-[#0a0d14] p-3 rounded border border-[#1b2234]">
                   {baseline.impactSummary}
@@ -273,17 +273,17 @@ export const DisruptionAlert: React.FC<DisruptionAlertProps> = ({ onSelectStage 
                 <div>
                   <div className="text-[10px] text-slate-500 uppercase">Quoted ETA</div>
                   <div className="font-bold text-emerald-300">1:35 PM</div>
-                  <div className="text-[9px] text-slate-500">Tick {alternative.quotedEtaTick}</div>
+                  <div className="text-[9px] text-slate-500">Hotshot courier</div>
                 </div>
                 <div>
                   <div className="text-[10px] text-slate-500 uppercase">Inspection</div>
                   <div className="font-bold text-emerald-300">10 min</div>
-                  <div className="text-[9px] text-slate-500">+2 ticks</div>
+                  <div className="text-[9px] text-slate-500">Fast-track intake</div>
                 </div>
                 <div>
                   <div className="text-[10px] text-emerald-400 uppercase font-bold">Usable Ready</div>
                   <div className="font-bold text-emerald-300">{alternative.usableReadyTime}</div>
-                  <div className="text-[9px] text-emerald-400/80">Tick {alternative.usableReadyTick}</div>
+                  <div className="text-[9px] text-emerald-400/80">Shop-floor ready</div>
                 </div>
               </div>
 
@@ -423,7 +423,7 @@ export const DisruptionAlert: React.FC<DisruptionAlertProps> = ({ onSelectStage 
             </p>
           </div>
           <span className="text-[10px] font-mono text-slate-400 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
-            Scenario Reference Tick: 159 (1:15 PM)
+            Scenario Reference Time: 1:15 PM
           </span>
         </div>
 
@@ -451,7 +451,7 @@ export const DisruptionAlert: React.FC<DisruptionAlertProps> = ({ onSelectStage 
                 <div className="flex items-center space-x-3">
                   <div className="w-16 shrink-0 text-center">
                     <div className="text-xs font-mono font-bold text-cyan-300">{milestone.time}</div>
-                    <div className="text-[10px] font-mono text-slate-500">Tick {milestone.tick}</div>
+                    <div className="text-[10px] font-mono text-slate-500">{milestone.type}</div>
                   </div>
                   <div className="h-8 w-px bg-[#1e2638] hidden sm:block" />
                   <div className="space-y-0.5">

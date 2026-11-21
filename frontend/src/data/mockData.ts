@@ -8,7 +8,7 @@ export const SYNTHETIC_DISCLOSURE = 'SYNTHETIC DEMO DATA — NOT A CLAIM OF LIVE
 export const EVALUATION_TICK = 159;
 export const OPERATING_DAY_END_TICK = 204;
 export const OVERTIME_CUTOFF_TICK = 228;
-export const SHARED_SNAPSHOT_TIME = '1:15 PM (Tick 159)';
+export const SHARED_SNAPSHOT_TIME = '1:15 PM';
 
 export const KPI_DATA: KpiSummary = {
   activeRos: 6,
@@ -95,7 +95,7 @@ export const MOCK_REPAIR_ORDERS: RepairOrder[] = [
     promisedDelivery: '12:00 PM',
     promiseTick: 144,
     readinessStatus: 'READY',
-    readinessDetails: 'Pads & rotors verified in-stock at wholesale intake (usable tick 96)',
+    readinessDetails: 'Pads & rotors verified in-stock at wholesale intake (usable at 8:00 AM)',
     laborGrossUsd: 300.0,
     priorityWeight: 1,
   },
@@ -110,7 +110,7 @@ export const MOCK_REPAIR_ORDERS: RepairOrder[] = [
     promisedDelivery: '11:00 AM',
     promiseTick: 132,
     readinessStatus: 'READY',
-    readinessDetails: 'Filters verified staged in parts intake room (usable tick 96)',
+    readinessDetails: 'Filters verified staged in parts intake room (usable at 8:00 AM)',
     laborGrossUsd: 240.0,
     priorityWeight: 1,
   },
@@ -140,7 +140,7 @@ export const MOCK_REPAIR_ORDERS: RepairOrder[] = [
     promisedDelivery: '4:00 PM',
     promiseTick: 192,
     readinessStatus: 'AT_RISK',
-    readinessDetails: 'OEM ground freight delayed to tick 198; Hotshot courier alternative tick 165',
+    readinessDetails: 'OEM ground freight delayed to 4:30 PM; Hotshot courier alternative ready at 1:45 PM',
     laborGrossUsd: 720.0,
     priorityWeight: 3,
   },
@@ -170,7 +170,7 @@ export const MOCK_REPAIR_ORDERS: RepairOrder[] = [
     promisedDelivery: '4:30 PM',
     promiseTick: 198,
     readinessStatus: 'READY',
-    readinessDetails: 'No parts required; evaluated at tick 159 with positive slack (+75 min)',
+    readinessDetails: 'No parts required; staged and ready in holding (+75 min buffer before deadline)',
     laborGrossUsd: 500.0,
     priorityWeight: 3,
   },
@@ -211,7 +211,7 @@ export const SYNTHETIC_DISRUPTION_SCENARIO: SyntheticDisruptionScenario = {
       usableReadyTime: '4:30 PM',
       freightSurchargeUsd: 0.0,
       status: 'Delayed (+180m delay from initial schedule)',
-      impactSummary: 'Baseline usable-ready tick is 198 (4:30 PM) with $0 incremental freight. With 120 minutes of remaining task duration (TASK-104-02), parts arriving at tick 198 provide insufficient standard shift time before customer promise tick 192 (4:00 PM) and shift end tick 204 (5:00 PM).',
+      impactSummary: 'Baseline parts usable at 4:30 PM with $0 incremental freight. With 120 minutes of remaining task duration (TASK-104-02), parts arriving at 4:30 PM provide insufficient standard shift time before customer promise (4:00 PM) and shift end (5:00 PM).',
     },
     alternative: {
       supplierId: 'S1_HOTSHOT',
@@ -223,7 +223,7 @@ export const SYNTHETIC_DISRUPTION_SCENARIO: SyntheticDisruptionScenario = {
       usableReadyTime: '1:45 PM',
       freightSurchargeUsd: 37.0,
       status: 'Alternative supplier offer (quoted ETA 1:35 PM, usable 1:45 PM)',
-      impactSummary: 'Hotshot S1 usable-ready tick is 165 (1:45 PM) with a $37 freight surcharge. A 1:45 PM delivery provides 135 minutes before customer promise tick 192 (4:00 PM) for the remaining 120-minute task duration, presenting a feasible window compared to baseline.',
+      impactSummary: 'Hotshot S1 parts usable at 1:45 PM with a $37.00 freight surcharge. A 1:45 PM delivery provides 135 minutes before customer promise (4:00 PM) for the remaining 120-minute repair, completing on-time.',
     },
   },
   downstreamImpact: {
@@ -233,7 +233,7 @@ export const SYNTHETIC_DISRUPTION_SCENARIO: SyntheticDisruptionScenario = {
     complaint: 'Intermittent engine stalling on deceleration; full diagnostic sweep required',
     requiredBayType: 'HEAVY_DIAGNOSTIC_LIFT',
     currentQueueState: 'IN_HOLDING (Awaiting Bay Availability)',
-    promisedDelivery: '4:30 PM (Tick 198)',
+    promisedDelivery: '4:30 PM',
     estimatedDurationMinutes: 120,
     estimatedDurationTicks: 24,
     priorityWeight: 3,
@@ -253,7 +253,7 @@ export const SYNTHETIC_DISRUPTION_SCENARIO: SyntheticDisruptionScenario = {
       time: '1:45 PM',
       label: 'Hotshot S1 Parts Usable (Alternative Supplier Offer)',
       type: 'EXPEDITED_OPTION',
-      description: 'Regional Hotshot Courier delivery quote: usable-ready at tick 165 (1:45 PM) with 10-min receiving inspection and $37 freight surcharge.',
+      description: 'Regional Hotshot Courier delivery quote: usable-ready at 1:45 PM with 10-min receiving inspection and $37 freight surcharge.',
       badgeColor: 'emerald',
     },
     {
@@ -261,7 +261,7 @@ export const SYNTHETIC_DISRUPTION_SCENARIO: SyntheticDisruptionScenario = {
       time: '4:00 PM',
       label: 'RO-104 Customer Promise Deadline',
       type: 'PROMISE_TIME',
-      description: 'Customer promise tick 192 (4:00 PM) for RO-104. Baseline parts arrival at tick 198 falls after this deadline.',
+      description: 'Customer promise 4:00 PM for RO-104. Baseline parts arrival at 4:30 PM falls after this deadline.',
       badgeColor: 'amber',
     },
     {
@@ -269,7 +269,7 @@ export const SYNTHETIC_DISRUPTION_SCENARIO: SyntheticDisruptionScenario = {
       time: '4:30 PM',
       label: 'Baseline Delivery Usable & RO-106 Promise',
       type: 'BASELINE_ETA',
-      description: 'Delayed ground shuttle parts ready for RO-104 at tick 198 (4:30 PM). Concurrently, RO-106 customer promise tick 198 occurs while still in holding.',
+      description: 'Delayed ground shuttle parts ready for RO-104 at 4:30 PM. Concurrently, RO-106 customer promise 4:30 PM arrives while still in holding awaiting bay access.',
       badgeColor: 'orange',
     },
     {
@@ -277,7 +277,7 @@ export const SYNTHETIC_DISRUPTION_SCENARIO: SyntheticDisruptionScenario = {
       time: '5:00 PM',
       label: 'Standard Shift End',
       type: 'SHIFT_END',
-      description: 'End of regular operating hours (tick 204). Baseline parts arrival leaves only 30 minutes before standard shift end.',
+      description: 'End of regular operating hours (5:00 PM). Baseline parts arrival leaves only 30 minutes before standard shift end.',
       badgeColor: 'slate',
     },
     {
@@ -285,7 +285,7 @@ export const SYNTHETIC_DISRUPTION_SCENARIO: SyntheticDisruptionScenario = {
       time: '7:00 PM',
       label: 'Overtime Cutoff Horizon',
       type: 'CUTOFF',
-      description: 'Maximum authorized overtime cutoff (tick 228). Work cannot extend beyond this horizon.',
+      description: 'Maximum authorized overtime cutoff (7:00 PM). Work cannot extend beyond this horizon.',
       badgeColor: 'purple',
     },
   ],

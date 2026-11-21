@@ -6,12 +6,13 @@ import {
   DollarSign,
   Clock,
   CheckCircle2,
+  AlertTriangle,
   Truck,
   Warehouse,
   ArrowRight,
-  ShieldCheck,
   Award,
 } from 'lucide-react';
+import { tickToTime } from '../utils/timeUtils';
 
 export const PerformanceView: React.FC = () => {
   const {
@@ -156,7 +157,11 @@ export const PerformanceView: React.FC = () => {
         <KpiCard
           label="Customer Promise Adherence"
           value={hasRunRecovery ? `${onTimeCount} / ${MOCK_REPAIR_ORDERS.length} (67%)` : `3 / 6 (50%)`}
-          sub={hasRunRecovery ? "RO-104 on-time; RO-106 rescued into overtime" : "RO-104 delayed; RO-106 bay starved"}
+          sub={
+            hasRunRecovery
+              ? '4 on-time (RO-101–104) • 1 rescued late (RO-106, 85 min late) • 1 blocked'
+              : '3 on-time • RO-104 delayed • RO-106 bay starved • RO-105 blocked'
+          }
           color="text-stone-900"
           icon={CheckCircle2}
           placeholder="Always available"
@@ -183,7 +188,9 @@ export const PerformanceView: React.FC = () => {
                 <span className="text-stone-700 font-medium">BAY-01 Active Working Utilization</span>
                 <span className="font-mono font-bold text-stone-900">
                   {dr.proposed_bay_utilization_pct.toFixed(1)}%
-                  <span className="text-emerald-800 ml-1.5">(+{dr.delta_bay_utilization_pct.toFixed(1)}% recovered)</span>
+                  <span className="text-emerald-800 ml-1.5 font-sans font-medium">
+                    (+{dr.delta_bay_utilization_pct.toFixed(1)} percentage points recovered)
+                  </span>
                 </span>
               </div>
               <div className="h-3 bg-[#f0ebe0] rounded-full overflow-hidden border border-[#ded7c8]">
@@ -205,15 +212,19 @@ export const PerformanceView: React.FC = () => {
                   <Clock className="w-4 h-4 text-emerald-600" />
                   <span className="text-stone-700 font-medium">Dead Lift Idle Time Avoided</span>
                 </div>
-                <span className="font-mono font-bold text-emerald-800 text-sm">{dr.delta_idle_minutes} minutes freed</span>
+                <span className="font-mono font-bold text-emerald-800 text-sm">
+                  {Math.abs(dr.delta_idle_minutes)} minutes of idle time avoided
+                </span>
               </div>
 
               <div className="p-3.5 bg-[#faf8f5] border border-[#e5dfd5] rounded-md flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-stone-700" />
-                  <span className="text-stone-700 font-medium">Downstream RO-106 Unblocked</span>
+                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+                  <span className="text-stone-700 font-medium">Downstream RO-106 Recovery</span>
                 </div>
-                <span className="font-medium text-stone-900">Admitted to BAY-01</span>
+                <span className="font-medium text-amber-900 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 text-xs">
+                  Admitted to BAY-01 (Completed at 5:55 PM, 85 min late)
+                </span>
               </div>
             </div>
           </div>
@@ -260,21 +271,26 @@ export const PerformanceView: React.FC = () => {
                       {ro.roId === 'RO-104' ? (
                         hasRunRecovery ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-200">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Protected On-Time ({supplierName.includes('Hotshot') ? 'Hotshot S1' : supplierName})
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Protected On-Time (
+                            {getRoFinishTick('RO-104') ? tickToTime(getRoFinishTick('RO-104')!) : '3:45 PM'} vs. 4:00 PM promise)
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200">
-                            At Risk (Awaiting Sourcing Decision)
+                            <AlertTriangle className="w-3 h-3 text-amber-600" /> At Risk — Stalled on Lift
                           </span>
                         )
                       ) : ro.roId === 'RO-106' ? (
                         hasRunRecovery ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-200">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Admitted to BAY-01 (Rescued in Overtime)
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200">
+                            <AlertTriangle className="w-3 h-3 text-amber-600" /> Recovered into Overtime —{' '}
+                            {getRoFinishTick('RO-106')
+                              ? `${Math.max(0, (getRoFinishTick('RO-106')! - ro.promiseTick) * 5)} min Late`
+                              : '85 min Late'}{' '}
+                            (Finish: {getRoFinishTick('RO-106') ? tickToTime(getRoFinishTick('RO-106')!) : '5:55 PM'})
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200">
-                            In Holding (Awaiting Heavy Lift BAY-01)
+                            <Clock className="w-3 h-3 text-amber-600" /> In Holding — Awaiting Heavy Lift BAY-01
                           </span>
                         )
                       ) : ro.roId === 'RO-105' ? (
