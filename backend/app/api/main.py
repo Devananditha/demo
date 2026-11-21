@@ -677,3 +677,36 @@ def approve_stallbreaker_recovery(request: StallBreakerApprovalRequest) -> Commi
         evaluation_time_utc=REFERENCE_EVAL_TIME_UTC,
     )
     return result
+
+
+from app.benchmark.models import BenchmarkSuiteReport, ScenarioBenchmarkResult
+from app.benchmark.runner import benchmark_runner
+
+# Global cached benchmark report
+_cached_benchmark_report: Optional[BenchmarkSuiteReport] = None
+
+
+@app.get(
+    "/api/v1/benchmark/results",
+    response_model=BenchmarkSuiteReport,
+    status_code=status.HTTP_200_OK,
+)
+def get_benchmark_results(seed: int = 42) -> BenchmarkSuiteReport:
+    """Returns the comprehensive benchmark evaluation report across all 7 synthetic scenarios."""
+    global _cached_benchmark_report
+    if _cached_benchmark_report is None or _cached_benchmark_report.scenarios[0].seed != seed:
+        _cached_benchmark_report = benchmark_runner.run_full_suite(seed=seed)
+    return _cached_benchmark_report
+
+
+@app.post(
+    "/api/v1/benchmark/run",
+    response_model=BenchmarkSuiteReport,
+    status_code=status.HTTP_200_OK,
+)
+def run_benchmark_suite(seed: int = 42) -> BenchmarkSuiteReport:
+    """Triggers an on-demand benchmark execution across all 7 scenarios and 4 dispatch methods."""
+    global _cached_benchmark_report
+    _cached_benchmark_report = benchmark_runner.run_full_suite(seed=seed)
+    return _cached_benchmark_report
+

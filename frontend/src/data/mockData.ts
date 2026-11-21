@@ -74,6 +74,13 @@ export const STAGES: StageInfo[] = [
     status: 'active',
     description: 'Event-driven telemetry ingestion, real-time disruption analysis, CP-SAT multi-alternative recovery, and Decision Replay.',
   },
+  {
+    id: 9,
+    name: 'Optimisation Benchmark & Statistical Evaluation',
+    shortLabel: '9. Benchmarks',
+    status: 'active',
+    description: 'Deterministic paired comparison of 4 dispatch methods across 7 synthetic scenarios with confidence intervals and verification audits.',
+  },
 ];
 
 export const MOCK_REPAIR_ORDERS: RepairOrder[] = [

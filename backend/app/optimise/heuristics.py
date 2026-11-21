@@ -160,6 +160,7 @@ class T1BitsetScheduler:
         plan_id: str = "PLAN-T1-DISPATCH",
         evidence: Optional[WorkshopEvidenceBundle] = None,
         blocked_bay_intervals: Optional[List[Tuple[str, int, int]]] = None,
+        task_sort_key_fn: Optional[Any] = None,
     ) -> ScheduleResult:
         """Executes deterministic earliest-fit scheduling over the snapshot state."""
         start_time = time.perf_counter()
@@ -281,7 +282,10 @@ class T1BitsetScheduler:
             promise = ro.promise_tick if ro else 288
             return (-priority, promise, task.sequence_order, task.estimated_duration_ticks, task.task_id)
 
-        incomplete_tasks.sort(key=task_sort_key)
+        if task_sort_key_fn is not None:
+            incomplete_tasks.sort(key=lambda t: task_sort_key_fn(t, ros_by_id))
+        else:
+            incomplete_tasks.sort(key=task_sort_key)
 
         # 5. Iterative Earliest-Fit Dispatching with Transitive Precedence Closure
         task_completion_ticks: Dict[str, int] = {}
