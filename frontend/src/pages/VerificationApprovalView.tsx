@@ -78,7 +78,7 @@ export const VerificationApprovalView: React.FC = () => {
   const planToCommit = selectedAlternative?.plan_id || selectedPlanId || recoveryReport?.recommended_plan_id;
   const freightToAuthorize = selectedAlternative
     ? Number(selectedAlternative.sourcing_cost_usd)
-    : Number(recoveryReport?.recommended_action?.freight_surcharge_usd ?? 37.0);
+    : Number(recoveryReport?.recommended_action?.freight_surcharge_usd ?? 0);
 
   const handleRunVerification = async () => {
     if (!hasRunRecovery || !recoveryReport) return;
