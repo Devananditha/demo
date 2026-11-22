@@ -247,13 +247,17 @@ export const RecoveryDecisionsView: React.FC = () => {
           const supplierName = selectedAlternative?.sourcing_candidate?.supplier_name || 'Regional Hotshot Dedicated Courier';
           const freightUsd = selectedAlternative
             ? Number(selectedAlternative.sourcing_cost_usd)
-            : Number(recoveryReport.recommended_action?.freight_surcharge_usd ?? 37.0);
+            : recoveryReport.recommended_action?.freight_surcharge_usd !== undefined
+            ? Number(recoveryReport.recommended_action.freight_surcharge_usd)
+            : undefined;
           const latenessMinutesAvoided = recoveryReport.decision_replay
             ? Math.abs(recoveryReport.decision_replay.delta_weighted_lateness_ticks * 5)
-            : 195;
+            : undefined;
           const netDeltaUsd = selectedAlternative
             ? Number(selectedAlternative.net_recovery_delta_usd)
-            : Number(recoveryReport.decision_replay?.net_economic_delta_usd ?? 463.0);
+            : recoveryReport.decision_replay?.net_economic_delta_usd !== undefined
+            ? Number(recoveryReport.decision_replay.net_economic_delta_usd)
+            : undefined;
 
           return (
             <div className="space-y-4 pt-4 border-t border-[#eee8df]">
@@ -305,7 +309,7 @@ export const RecoveryDecisionsView: React.FC = () => {
                   </div>
                   <div>
                     <span>Freight Surcharge: </span>
-                    <span className="text-stone-900 font-mono font-bold">${freightUsd.toFixed(2)}</span>
+                    <span className="text-stone-900 font-mono font-bold">{freightUsd !== undefined ? `${freightUsd.toFixed(2)}` : 'Unavailable'}</span>
                     <span className="text-stone-500 ml-1">(Within manager $50.00 approval authority)</span>
                   </div>
                 </div>
@@ -329,7 +333,7 @@ export const RecoveryDecisionsView: React.FC = () => {
                     <div className="p-3 bg-[#faf8f5] border border-[#e5dfd5] rounded-md">
                       <div className="text-[11px] font-medium text-stone-500">Delivery Lateness</div>
                       <div className="text-sm font-bold text-emerald-800 font-mono mt-1">
-                        -{latenessMinutesAvoided} min
+                        {latenessMinutesAvoided !== undefined ? `-${latenessMinutesAvoided} min` : 'Not calculated'}
                       </div>
                       <div className="text-[10px] text-stone-500">Customer delay avoided</div>
                     </div>
@@ -337,7 +341,7 @@ export const RecoveryDecisionsView: React.FC = () => {
                     <div className="p-3 bg-[#faf8f5] border border-[#e5dfd5] rounded-md">
                       <div className="text-[11px] font-medium text-stone-500">Courier Freight</div>
                       <div className="text-sm font-bold text-stone-700 font-mono mt-1">
-                        -${freightUsd.toFixed(2)}
+                        {freightUsd !== undefined ? `-$${freightUsd.toFixed(2)}` : 'Unavailable'}
                       </div>
                       <div className="text-[10px] text-stone-500">Expedited surcharge</div>
                     </div>
@@ -353,7 +357,7 @@ export const RecoveryDecisionsView: React.FC = () => {
                     <div className="p-3 bg-[#faf8f5] border border-[#e5dfd5] rounded-md">
                       <div className="text-[11px] font-medium text-stone-500">Dead Lift Avoided</div>
                       <div className="text-sm font-bold text-emerald-800 font-mono mt-1">
-                        {recoveryReport.decision_replay.delta_idle_minutes} min
+                        {Math.abs(recoveryReport.decision_replay.delta_idle_minutes)} min avoided
                       </div>
                       <div className="text-[10px] text-stone-500">Wasted stall hours freed</div>
                     </div>
@@ -361,7 +365,7 @@ export const RecoveryDecisionsView: React.FC = () => {
                     <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-md">
                       <div className="text-[11px] font-semibold text-emerald-900">Net Economic Gain</div>
                       <div className="text-sm font-bold text-emerald-800 font-mono mt-1">
-                        +${netDeltaUsd.toFixed(2)}
+                        {netDeltaUsd !== undefined ? `+$${netDeltaUsd.toFixed(2)}` : 'Not calculated'}
                       </div>
                       <div className="text-[10px] text-emerald-700">Net recovery delta</div>
                     </div>

@@ -5,9 +5,11 @@ import {
   EventIngestResponse,
   RecoveryRecommendationResponse,
   ScheduleResult,
+  ScheduleVerificationResult,
   StallBreakerDisruptionAnalysis,
   StallBreakerRecoveryReport,
   StoredEvent,
+  CandidateSchedulePlan,
 } from '../types';
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://127.0.0.1:8000';
@@ -224,6 +226,33 @@ export async function approveStallBreakerRecovery(
   return res.json();
 }
 
+
+export async function verifyCandidatePlan(
+  rooftopId: string,
+  snapshotHash: string,
+  plan: CandidateSchedulePlan
+): Promise<ScheduleVerificationResult> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/verifier/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      rooftop_id: rooftopId,
+      snapshot_hash: snapshotHash,
+      plan,
+    }),
+  });
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      const err = await res.json();
+      detail = err.detail || detail;
+    } catch {
+      // fallback to status text
+    }
+    throw new Error(`Verifier API Error (HTTP ${res.status}): ${detail}`);
+  }
+  return res.json();
+}
 
 export async function fetchBenchmarkResults(seed: number = 42): Promise<import('../types').BenchmarkSuiteReport> {
   const res = await fetch(`${API_BASE_URL}/api/v1/benchmark/results?seed=${seed}`);
