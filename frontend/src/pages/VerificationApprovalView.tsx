@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   approveStallBreakerRecovery,
-  fetchStallBreakerRecovery,
+  verifyCandidatePlan,
 } from '../api/predictClient';
 import { useAppState } from '../context/AppStateContext';
 import {
@@ -76,41 +76,66 @@ export const VerificationApprovalView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const planToCommit = selectedAlternative?.plan_id || selectedPlanId || recoveryReport?.recommended_plan_id;
-  const freightToAuthorize = selectedAlternative
+
+  // Derive freight from actual backend data — no fabricated fallback
+  const rawFreight = selectedAlternative
     ? Number(selectedAlternative.sourcing_cost_usd)
-    : Number(recoveryReport?.recommended_action?.freight_surcharge_usd ?? 37.0);
+    : recoveryReport?.recommended_action?.freight_surcharge_usd !== undefined
+    ? Number(recoveryReport.recommended_action.freight_surcharge_usd)
+    : undefined;
+  const freightToAuthorize: number | undefined =
+    rawFreight !== undefined && !isNaN(rawFreight) ? rawFreight : undefined;
 
   const handleRunVerification = async () => {
-    if (!hasRunRecovery) return;
+    if (!hasRunRecovery || !recoveryReport) return;
     setVerifyLoading(true);
     setError(null);
+    setVerificationResult(null);
+    setHasRunVerification(false);
     try {
-      const report =
-        recoveryReport ||
-        (activeDisruptionEventId ? await fetchStallBreakerRecovery(activeDisruptionEventId) : null);
-      if (!report) {
-        throw new Error('No recovery report found. Please run Recovery Decisions first.');
+      // Resolve the candidate alternative to verify
+      const candidateAlt =
+        (selectedPlanId
+          ? recoveryReport.evaluated_alternatives?.find((a) => a.plan_id === selectedPlanId)
+          : null) ||
+        recoveryReport.evaluated_alternatives?.find((a) => a.is_recommended) ||
+        recoveryReport.evaluated_alternatives?.[0];
+
+      if (!candidateAlt?.schedule_result?.plan) {
+        throw new Error(
+          'No candidate schedule plan found in recovery alternatives. Run Recovery Decisions first.'
+        );
       }
-      setVerificationResult(report);
+
+      const plan = candidateAlt.schedule_result.plan;
+      const rooftopId = workshopState?.rooftop_id || plan.rooftop_id || 'ROOF-01';
+      const snapshotHash = plan.snapshot_hash || workshopState?.snapshot_hash || '';
+
+      // Call the independent backend verifier — not reuse the recovery report
+      const result = await verifyCandidatePlan(rooftopId, snapshotHash, plan);
+      setVerificationResult(result);
       setHasRunVerification(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Verification failed.');
+      setVerificationResult(null);
+      setHasRunVerification(false);
     } finally {
       setVerifyLoading(false);
     }
   };
 
   const handleApprove = async () => {
-    if (!planToCommit || !recoveryReport?.event_id || !workshopState?.snapshot_hash) return;
+    const eventId = activeDisruptionEventId || recoveryReport?.event_id;
+    if (!planToCommit || !eventId || !workshopState?.snapshot_hash) return;
     setApproveLoading(true);
     setError(null);
     try {
       const result = await approveStallBreakerRecovery(
         planToCommit,
-        recoveryReport.event_id,
+        eventId,
         workshopState.snapshot_hash,
         'MGR-MARCUS',
-        freightToAuthorize
+        freightToAuthorize ?? 0
       );
       setApprovalResult(result);
     } catch (err: unknown) {
@@ -121,37 +146,58 @@ export const VerificationApprovalView: React.FC = () => {
   };
 
   const getConstraintEvaluation = (cId: string): { status: 'unchecked' | 'pass' | 'fail'; evidence?: string } => {
+    // Before verification runs: everything is unchecked
     if (!hasRunVerification || !verificationResult) {
       return { status: 'unchecked' };
     }
+
+    // C7 — manager freight limit: derive from actual freight value
     if (cId === 'C7') {
-      const evidence =
-        freightToAuthorize > 0
-          ? `Expedited freight ($${freightToAuthorize.toFixed(2)}) authorized within manager $50.00 limit`
-          : 'Standard ground freight ($0.00); no surcharge required';
+      // Check if verifier found a C7 violation (stale snapshot, unauthorized repair, freight exceeded)
+      const c7Violation = verificationResult.violations?.find(
+        (v: { constraint?: string }) => v.constraint === 'C7'
+      );
+      if (c7Violation) {
+        return {
+          status: 'fail',
+          evidence: c7Violation.message || c7Violation.description || 'C7 constraint violated',
+        };
+      }
+      // If plan was valid overall and no C7 violation recorded: derive from freight value
+      if (verificationResult.is_valid) {
+        const evidence =
+          freightToAuthorize !== undefined && freightToAuthorize > 0
+            ? `Expedited freight ($${freightToAuthorize.toFixed(2)}) authorized within manager $50.00 limit`
+            : 'Standard ground freight ($0.00); no surcharge required';
+        return { status: 'pass', evidence };
+      }
+      // Plan failed but no specific C7 violation: cannot certify C7
+      return { status: 'unchecked' };
+    }
+
+    // C1–C6: look for a violation with matching constraint code
+    const violation = verificationResult.violations?.find(
+      (v: { constraint?: string }) => v.constraint === cId
+    );
+    if (violation) {
       return {
-        status: freightToAuthorize <= 50.0 ? 'pass' : 'fail',
-        evidence,
+        status: 'fail',
+        evidence: violation.message || violation.description || `${cId} constraint violated`,
       };
     }
-    const explainability = verificationResult?.explainability;
-    if (!explainability) {
+
+    // No violation found for this constraint
+    if (verificationResult.is_valid) {
+      // Verifier checked everything and found nothing wrong — constraint passes
       return { status: 'pass' };
     }
-    const c = explainability.constraints_considered?.find(
-      (x: any) => x.constraint === cId
-    );
-    if (!c) {
-      return { status: 'pass' };
-    }
-    const isSatisfied = c.is_satisfied === true || c.status === 'SATISFIED' || c.status === 'PASS';
-    return {
-      status: isSatisfied ? 'pass' : 'fail',
-      evidence: c.evidence || c.notes || c.description,
-    };
+
+    // Plan failed but this specific constraint wasn't violated — we don't know its status
+    return { status: 'unchecked' };
   };
 
-  const allPass = hasRunVerification && CONSTRAINTS.every((c) => getConstraintEvaluation(c.id).status === 'pass');
+  // Approval unlocks only when backend verifier explicitly confirmed the plan is valid
+  const allPass = hasRunVerification && verificationResult?.is_valid === true;
 
   return (
     <div className="space-y-6 pb-8">
@@ -283,7 +329,7 @@ export const VerificationApprovalView: React.FC = () => {
             <div className="space-y-0.5 text-left">
               <div className="text-xs font-bold text-stone-900">Authorize Freight & Commit Optimal Dispatch</div>
               <div className="text-xs text-stone-600">
-                Plan: <strong className="font-mono text-stone-900">{planToCommit}</strong> &bull; Approver: <strong className="text-stone-900">MGR-MARCUS</strong> &bull; Surcharge: <strong className="text-emerald-800 font-mono font-bold">${freightToAuthorize.toFixed(2)}</strong> (Authorized Limit: $50.00)
+                Plan: <strong className="font-mono text-stone-900">{planToCommit}</strong> &bull; Approver: <strong className="text-stone-900">MGR-MARCUS</strong> &bull; Surcharge: <strong className="text-emerald-800 font-mono font-bold">{freightToAuthorize !== undefined ? `$${freightToAuthorize.toFixed(2)}` : 'Unavailable'}</strong> (Authorized Limit: $50.00)
               </div>
             </div>
 

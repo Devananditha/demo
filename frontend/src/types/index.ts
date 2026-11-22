@@ -152,11 +152,15 @@ export interface ObjectiveMetrics {
 }
 
 export interface ScheduleConstraintViolation {
-  rule_id: string;
-  description: string;
-  severity: string;
+  rule_id?: string;
+  code?: string;
+  constraint?: string;
+  description?: string;
+  message?: string;
+  severity?: string;
   entity_id?: string | null;
   tick?: number | null;
+  context?: Record<string, unknown>;
 }
 
 export interface ScheduleVerificationResult {
@@ -325,6 +329,7 @@ export interface RecoveryAlternativeReport {
   is_pareto_optimal: boolean;
   is_recommended: boolean;
   rationale?: string | null;
+  schedule_result?: ScheduleResult | null;
 }
 
 export interface RecoveryRecommendationResponse {

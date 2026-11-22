@@ -1,6 +1,8 @@
 import React from 'react';
 import { useAppState } from '../context/AppStateContext';
 import { MOCK_REPAIR_ORDERS } from '../data/mockData';
+import { tickToTime } from '../utils/timeUtils';
+import { ScheduledAssignment } from '../types';
 import {
   TrendingUp,
   DollarSign,
@@ -11,6 +13,9 @@ import {
   ArrowRight,
   ShieldCheck,
   Award,
+  AlertTriangle,
+  XCircle,
+  Layers,
 } from 'lucide-react';
 
 export const PerformanceView: React.FC = () => {
@@ -20,39 +25,113 @@ export const PerformanceView: React.FC = () => {
     hasRunRecovery,
     setActiveSection,
     selectedAlternative,
+    initialSchedule,
   } = useAppState();
 
   const totalLaborGross = MOCK_REPAIR_ORDERS.reduce((sum, ro) => sum + ro.laborGrossUsd, 0);
 
   const dr = recoveryReport?.decision_replay;
-  const freightUsd = selectedAlternative
+  const rawFreight = selectedAlternative
     ? Number(selectedAlternative.sourcing_cost_usd)
-    : Number(dr?.sourcing_freight_usd ?? 37.0);
-  const netDeltaUsd = selectedAlternative
+    : dr?.sourcing_freight_usd !== undefined
+    ? Number(dr.sourcing_freight_usd)
+    : undefined;
+  const freightUsd: number | undefined =
+    rawFreight !== undefined && !isNaN(rawFreight) ? rawFreight : undefined;
+
+  const rawNetDelta = selectedAlternative
     ? Number(selectedAlternative.net_recovery_delta_usd)
-    : Number(dr?.net_economic_delta_usd ?? 463.0);
+    : dr?.net_economic_delta_usd !== undefined
+    ? Number(dr.net_economic_delta_usd)
+    : undefined;
+  const netDeltaUsd: number | undefined =
+    rawNetDelta !== undefined && !isNaN(rawNetDelta) ? rawNetDelta : undefined;
+
   const supplierName =
     selectedAlternative?.sourcing_candidate?.supplier_name || 'Regional Hotshot Dedicated Courier';
 
-  const assignments = selectedAlternative?.schedule_result?.plan?.assignments || [];
-  const getRoFinishTick = (roId: string) => {
-    const roAssigns = assignments.filter((a: any) => a.ro_id === roId);
+  const assignments: ScheduledAssignment[] =
+    selectedAlternative?.schedule_result?.plan?.assignments || [];
+
+  const getRoFinishTick = (roId: string): number | null => {
+    const roAssigns = assignments.filter((a: ScheduledAssignment) => a.ro_id === roId);
     if (roAssigns.length === 0) return null;
-    return Math.max(...roAssigns.map((a: any) => a.end_tick));
+    return Math.max(...roAssigns.map((a: ScheduledAssignment) => a.end_tick));
   };
 
-  const onTimeCount = hasRunRecovery
+  // Derive per-RO outcome strictly from actual schedule assignments
+  const deriveRoOutcome = (roId: string, promiseTick: number) => {
+    if (!hasRunRecovery || assignments.length === 0) {
+      if (roId === 'RO-104') {
+        return {
+          status: 'risk',
+          label: 'At Risk (Awaiting Sourcing Decision)',
+          color: 'amber',
+        };
+      }
+      if (roId === 'RO-106') {
+        return {
+          status: 'holding',
+          label: 'In Holding (Awaiting Heavy Lift BAY-01)',
+          color: 'amber',
+        };
+      }
+      if (roId === 'RO-105') {
+        return {
+          status: 'blocked',
+          label: 'Blocked — National Backorder (HV Harness)',
+          color: 'rose',
+        };
+      }
+      return {
+        status: 'ontime',
+        label: 'Delivered On-Time',
+        color: 'emerald',
+      };
+    }
+
+    const roAssigns = assignments.filter((a: ScheduledAssignment) => a.ro_id === roId);
+    if (roAssigns.length === 0) {
+      return {
+        status: 'unscheduled',
+        label: roId === 'RO-105' ? 'Blocked — National Backorder' : 'Unscheduled',
+        color: 'rose',
+      };
+    }
+
+    const finishTick = Math.max(...roAssigns.map((a: ScheduledAssignment) => a.end_tick));
+    const finishTime = tickToTime(finishTick);
+    const isOnTime = finishTick <= promiseTick;
+
+    if (isOnTime) {
+      return {
+        status: 'ontime',
+        label: `Delivered On-Time (${finishTime})`,
+        color: 'emerald',
+      };
+    }
+
+    // Delayed or rescued in overtime
+    return {
+      status: 'delayed',
+      label: finishTick > 204
+        ? `Rescued in Overtime (${finishTime})`
+        : `Delayed (${finishTime})`,
+      color: 'amber',
+    };
+  };
+
+  const onTimeCount = hasRunRecovery && assignments.length > 0
     ? MOCK_REPAIR_ORDERS.filter((ro) => {
-        if (ro.roId === 'RO-104') {
-          const finish = getRoFinishTick('RO-104');
-          return finish !== null ? finish <= ro.promiseTick : true;
-        }
-        if (ro.roId === 'RO-106') {
-          return false; // Rescued into overtime
-        }
-        return ro.readinessStatus === 'READY';
+        const finish = getRoFinishTick(ro.roId);
+        return finish !== null && finish <= ro.promiseTick;
       }).length
     : 3;
+
+  const onTimePct =
+    MOCK_REPAIR_ORDERS.length > 0
+      ? Math.round((onTimeCount / MOCK_REPAIR_ORDERS.length) * 100)
+      : 0;
 
   function KpiCard({
     label,
@@ -75,7 +154,7 @@ export const PerformanceView: React.FC = () => {
           <span className="text-xs font-medium text-stone-500">{label}</span>
           <Icon className={`w-4 h-4 ${color || 'text-stone-400'}`} />
         </div>
-        {hasRunRecovery && value !== undefined ? (
+        {value !== undefined ? (
           <div>
             <div className={`text-2xl font-bold font-mono ${color || 'text-stone-900'}`}>{value}</div>
             {sub && <div className="text-xs text-stone-500 mt-1">{sub}</div>}
@@ -90,6 +169,37 @@ export const PerformanceView: React.FC = () => {
       </div>
     );
   }
+
+  // Baseline vs Recovered metrics
+  const baselineLatenessTicks =
+    initialSchedule?.metrics?.weighted_lateness_ticks ??
+    dr?.baseline_weighted_lateness_ticks ??
+    undefined;
+  const recoveredLatenessTicks =
+    selectedAlternative?.schedule_result?.metrics?.weighted_lateness_ticks ??
+    dr?.proposed_weighted_lateness_ticks ??
+    (selectedAlternative ? selectedAlternative.weighted_lateness_ticks : undefined);
+
+  const baselineNetObjective =
+    initialSchedule?.metrics?.net_objective_usd ??
+    dr?.baseline_net_objective_usd ??
+    undefined;
+  const recoveredNetObjective =
+    selectedAlternative?.net_objective_usd ??
+    selectedAlternative?.schedule_result?.metrics?.net_objective_usd ??
+    dr?.proposed_net_objective_usd ??
+    undefined;
+
+  const baselineIdleMins =
+    dr?.baseline_idle_minutes ??
+    (initialSchedule?.metrics?.bay_blocked_ticks !== undefined
+      ? initialSchedule.metrics.bay_blocked_ticks * 5
+      : undefined);
+  const recoveredIdleMins =
+    dr?.proposed_idle_minutes ??
+    (selectedAlternative?.schedule_result?.metrics?.bay_blocked_ticks !== undefined
+      ? selectedAlternative.schedule_result.metrics.bay_blocked_ticks * 5
+      : undefined);
 
   return (
     <div className="space-y-6 pb-8">
@@ -141,26 +251,118 @@ export const PerformanceView: React.FC = () => {
         />
         <KpiCard
           label="Expedited Freight Investment"
-          value={hasRunRecovery ? `-$${freightUsd.toFixed(2)}` : undefined}
+          value={hasRunRecovery ? (freightUsd !== undefined ? `-$${freightUsd.toFixed(2)}` : undefined) : undefined}
           sub={supplierName}
           color="text-rose-800"
           icon={Truck}
+          placeholder={hasRunRecovery ? 'Unavailable' : 'Available after Recovery step'}
         />
         <KpiCard
           label="Net Economic Improvement"
-          value={hasRunRecovery ? `+$${netDeltaUsd.toFixed(2)}` : undefined}
+          value={hasRunRecovery ? (netDeltaUsd !== undefined ? `+$${netDeltaUsd.toFixed(2)}` : undefined) : undefined}
           sub="Protected vs. unmitigated stall"
           color="text-emerald-800"
           icon={TrendingUp}
+          placeholder={hasRunRecovery ? 'Not calculated' : 'Available after Recovery step'}
         />
         <KpiCard
           label="Customer Promise Adherence"
-          value={hasRunRecovery ? `${onTimeCount} / ${MOCK_REPAIR_ORDERS.length} (67%)` : `3 / 6 (50%)`}
-          sub={hasRunRecovery ? "RO-104 on-time; RO-106 rescued into overtime" : "RO-104 delayed; RO-106 bay starved"}
+          value={
+            hasRunRecovery && assignments.length > 0
+              ? `${onTimeCount} / ${MOCK_REPAIR_ORDERS.length} (${onTimePct}%)`
+              : hasRunRecovery
+              ? 'Not calculated'
+              : '3 / 6 (50%)'
+          }
+          sub={
+            hasRunRecovery && assignments.length > 0
+              ? `${onTimeCount} on-time, ${MOCK_REPAIR_ORDERS.length - onTimeCount} delayed/blocked`
+              : hasRunRecovery
+              ? 'Awaiting schedule execution'
+              : 'RO-104 delayed; RO-106 bay starved'
+          }
           color="text-stone-900"
           icon={CheckCircle2}
           placeholder="Always available"
         />
+      </div>
+
+      {/* Baseline vs. Recovered Schedule Comparison Ledger (Stage 7) */}
+      <div className="bg-white border border-[#e5dfd5] rounded-lg p-5 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-[#eee8df] pb-3">
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-stone-700" />
+            <h3 className="text-sm font-semibold text-stone-900">Schedule Comparison: Pre-Disruption Baseline vs. Recovered</h3>
+          </div>
+          <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-[#f5f1e8] text-stone-700 border border-[#ded7c8]">
+            Stage 7 Verification
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-[#e5dfd5] bg-[#f5f1e8] text-stone-700 font-semibold text-left">
+                <th className="px-4 py-2.5">Schedule Metric</th>
+                <th className="px-4 py-2.5">Initial Baseline Schedule</th>
+                <th className="px-4 py-2.5">Recovered Dispatch Schedule</th>
+                <th className="px-4 py-2.5">Net Delta</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#eee8df] font-mono">
+              <tr className="hover:bg-[#faf8f5]">
+                <td className="px-4 py-2.5 font-sans font-medium text-stone-900">Weighted Lateness Penalty</td>
+                <td className="px-4 py-2.5 text-stone-700">
+                  {baselineLatenessTicks !== undefined ? `${baselineLatenessTicks} ticks (${baselineLatenessTicks * 5} min)` : 'Unavailable'}
+                </td>
+                <td className="px-4 py-2.5 text-emerald-800 font-bold">
+                  {recoveredLatenessTicks !== undefined ? `${recoveredLatenessTicks} ticks (${recoveredLatenessTicks * 5} min)` : 'Unavailable'}
+                </td>
+                <td className="px-4 py-2.5 text-emerald-800 font-bold">
+                  {dr?.delta_weighted_lateness_ticks !== undefined
+                    ? `${dr.delta_weighted_lateness_ticks} ticks (${Math.abs(dr.delta_weighted_lateness_ticks * 5)} min avoided)`
+                    : 'Unavailable'}
+                </td>
+              </tr>
+              <tr className="hover:bg-[#faf8f5]">
+                <td className="px-4 py-2.5 font-sans font-medium text-stone-900">Expedited Sourcing Cost</td>
+                <td className="px-4 py-2.5 text-stone-700">$0.00</td>
+                <td className="px-4 py-2.5 text-rose-800 font-bold">
+                  {freightUsd !== undefined ? `$${freightUsd.toFixed(2)}` : 'Unavailable'}
+                </td>
+                <td className="px-4 py-2.5 text-rose-800">
+                  {freightUsd !== undefined ? `-$${freightUsd.toFixed(2)}` : 'Unavailable'}
+                </td>
+              </tr>
+              <tr className="hover:bg-[#faf8f5]">
+                <td className="px-4 py-2.5 font-sans font-medium text-stone-900">Bay Blocked / Idle Time</td>
+                <td className="px-4 py-2.5 text-stone-700">
+                  {baselineIdleMins !== undefined ? `${baselineIdleMins} min` : 'Unavailable'}
+                </td>
+                <td className="px-4 py-2.5 text-stone-900 font-bold">
+                  {recoveredIdleMins !== undefined ? `${recoveredIdleMins} min` : 'Unavailable'}
+                </td>
+                <td className="px-4 py-2.5 text-emerald-800 font-bold">
+                  {dr?.delta_idle_minutes !== undefined
+                    ? `${Math.abs(dr.delta_idle_minutes)} min avoided`
+                    : 'Unavailable'}
+                </td>
+              </tr>
+              <tr className="hover:bg-[#faf8f5] bg-[#faf8f5]/50">
+                <td className="px-4 py-2.5 font-sans font-bold text-stone-900">Net Economic Objective</td>
+                <td className="px-4 py-2.5 text-stone-700">
+                  {baselineNetObjective !== undefined ? `$${baselineNetObjective}` : 'Unavailable'}
+                </td>
+                <td className="px-4 py-2.5 text-stone-900 font-bold">
+                  {recoveredNetObjective !== undefined ? `$${recoveredNetObjective}` : 'Unavailable'}
+                </td>
+                <td className="px-4 py-2.5 text-emerald-800 font-bold">
+                  {netDeltaUsd !== undefined ? `+$${netDeltaUsd.toFixed(2)}` : 'Unavailable'}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Bay Utilization & Avoided Idle Hours */}
@@ -205,7 +407,9 @@ export const PerformanceView: React.FC = () => {
                   <Clock className="w-4 h-4 text-emerald-600" />
                   <span className="text-stone-700 font-medium">Dead Lift Idle Time Avoided</span>
                 </div>
-                <span className="font-mono font-bold text-emerald-800 text-sm">{dr.delta_idle_minutes} minutes freed</span>
+                <span className="font-mono font-bold text-emerald-800 text-sm">
+                  {Math.abs(dr.delta_idle_minutes)} minutes avoided
+                </span>
               </div>
 
               <div className="p-3.5 bg-[#faf8f5] border border-[#e5dfd5] rounded-md flex items-center justify-between text-xs">
@@ -235,7 +439,7 @@ export const PerformanceView: React.FC = () => {
       <div className="bg-white border border-[#e5dfd5] rounded-lg shadow-xs overflow-hidden">
         <div className="px-5 py-4 border-b border-[#e5dfd5] bg-[#faf8f5]">
           <h3 className="text-sm font-semibold text-stone-900">Full-Shop Delivery Outcome Ledger</h3>
-          <p className="text-xs text-stone-500">Final customer delivery promise status across all 6 active repair orders.</p>
+          <p className="text-xs text-stone-500">Final customer delivery promise status derived from actual scheduled assignments.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
@@ -250,6 +454,7 @@ export const PerformanceView: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-[#eee8df]">
               {MOCK_REPAIR_ORDERS.map((ro) => {
+                const outcome = deriveRoOutcome(ro.roId, ro.promiseTick);
                 return (
                   <tr key={ro.roId} className="hover:bg-[#faf8f5] transition-colors">
                     <td className="px-4 py-3 font-mono font-bold text-stone-900">{ro.roId}</td>
@@ -257,33 +462,17 @@ export const PerformanceView: React.FC = () => {
                     <td className="px-4 py-3 font-mono font-medium text-stone-700">{ro.promisedDelivery}</td>
                     <td className="px-4 py-3 font-mono font-semibold text-stone-900">${ro.laborGrossUsd.toFixed(2)}</td>
                     <td className="px-4 py-3">
-                      {ro.roId === 'RO-104' ? (
-                        hasRunRecovery ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-200">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Protected On-Time ({supplierName.includes('Hotshot') ? 'Hotshot S1' : supplierName})
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200">
-                            At Risk (Awaiting Sourcing Decision)
-                          </span>
-                        )
-                      ) : ro.roId === 'RO-106' ? (
-                        hasRunRecovery ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-200">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Admitted to BAY-01 (Rescued in Overtime)
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200">
-                            In Holding (Awaiting Heavy Lift BAY-01)
-                          </span>
-                        )
-                      ) : ro.roId === 'RO-105' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200">
-                          Blocked — National Backorder (HV Harness)
+                      {outcome.color === 'emerald' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-200">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> {outcome.label}
+                        </span>
+                      ) : outcome.color === 'amber' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200">
+                          <AlertTriangle className="w-3 h-3 text-amber-600" /> {outcome.label}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-200">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Delivered On-Time
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200">
+                          <XCircle className="w-3 h-3 text-rose-600" /> {outcome.label}
                         </span>
                       )}
                     </td>
