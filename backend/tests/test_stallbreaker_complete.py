@@ -342,6 +342,20 @@ class TestStallBreakerFastAPIEndpoints:
         assert len(data["repair_orders"]) > 0
 
     def test_api_stallbreaker_disruption_analysis(self, client: TestClient):
+        payload = {"part_req_id": "PART-REQ-104-SOLENOID", "new_ready_tick": 198, "delay_minutes": 180}
+        sig = compute_hmac_sha256(payload)
+        client.post(
+            "/api/v1/stallbreaker/events",
+            json={
+                "event_id": "EVT-DISRUPT-TEST",
+                "rooftop_id": "ROOF-01",
+                "event_type": "PARTS_ETA_CHANGED",
+                "entity_type": "PART_REQUIREMENT",
+                "entity_id": "PART-REQ-104-SOLENOID",
+                "payload": payload,
+                "signature": sig,
+            },
+        )
         resp = client.post(
             "/api/v1/stallbreaker/disruption-analysis",
             json={"event_id": "EVT-DISRUPT-TEST"},
@@ -350,6 +364,44 @@ class TestStallBreakerFastAPIEndpoints:
         data = resp.json()
         assert "RO-104" in data["disrupted_ro_ids"]
         assert "BAY-01" in data["affected_bay_ids"]
+
+    def test_api_stallbreaker_disruption_analysis_missing_event_id_returns_400(self, client: TestClient):
+        resp = client.post(
+            "/api/v1/stallbreaker/disruption-analysis",
+            json={"event_id": ""},
+        )
+        assert resp.status_code in (400, 422)
+
+    def test_api_stallbreaker_disruption_analysis_unknown_event_id_returns_404(self, client: TestClient):
+        resp = client.post(
+            "/api/v1/stallbreaker/disruption-analysis",
+            json={"event_id": "EVT-UNKNOWN-DISRUPTION-ID-404"},
+        )
+        assert resp.status_code == 404
+        assert "not found" in resp.json()["detail"].lower()
+
+    def test_api_stallbreaker_disruption_analysis_rooftop_mismatch_returns_404(self, client: TestClient):
+        now = datetime.now(timezone.utc)
+        stallbreaker_event_store.record_event(
+            StoredEvent(
+                event_id="EVT-DISRUPT-OTHER-ROOF",
+                rooftop_id="ROOF-NON-ACTIVE",
+                event_type=EventType.PARTS_ETA_CHANGED,
+                entity_type="PART_REQUIREMENT",
+                entity_id="PART-REQ-104-SOLENOID",
+                payload={"delay_minutes": 180},
+                occurred_at=now,
+                ingested_at=now,
+                snapshot_hash_before="",
+                snapshot_hash_after="",
+            )
+        )
+        resp = client.post(
+            "/api/v1/stallbreaker/disruption-analysis",
+            json={"event_id": "EVT-DISRUPT-OTHER-ROOF"},
+        )
+        assert resp.status_code == 404
+        assert "belongs to rooftop" in resp.json()["detail"].lower()
 
     def test_api_stallbreaker_recovery_recommendations(self, client: TestClient):
         payload = {"part_req_id": "PART-REQ-104-SOLENOID", "new_ready_tick": 198, "delay_minutes": 180}

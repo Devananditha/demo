@@ -403,7 +403,22 @@ def verify_candidate_schedule(request: VerificationRequest) -> VerificationResul
             detail=f"Rooftop '{request.rooftop_id}' not found.",
         )
 
-    oracle = SweepLineOracle(snapshot)
+    cand_snap = snapshot
+    plan_id = request.plan.plan_id
+    if plan_id.startswith("PLAN-REC-"):
+        option_id = plan_id[len("PLAN-REC-"):]
+        matched_offer = next((o for o in snapshot.supplier_offers if o.offer_id == option_id), None)
+        if matched_offer:
+            cand_snap = snapshot.model_copy(deep=True)
+            for p in cand_snap.part_requirements:
+                if p.part_req_id == matched_offer.part_req_id:
+                    p.usable_ready_tick = (
+                        matched_offer.usable_ready_tick
+                        if matched_offer.usable_ready_tick is not None
+                        else (matched_offer.quoted_eta_tick + (matched_offer.receiving_inspection_minutes // 5))
+                    )
+
+    oracle = SweepLineOracle(cand_snap)
     verdict = oracle.verify_plan(request.plan)
     return verdict
 
@@ -611,22 +626,27 @@ def get_stallbreaker_live_state() -> DealershipStateResponse:
 )
 def analyze_stallbreaker_disruption(request: DisruptionAnalysisRequest) -> StallBreakerDisruptionAnalysis:
     """Evaluates the consequences of an event on shop capacity and active schedules."""
-    event = stallbreaker_event_store.get_event(request.event_id)
-    if not event:
-        event = StoredEvent(
-            event_id=request.event_id,
-            rooftop_id="ROOF-01",
-            event_type=EventType.PARTS_ETA_CHANGED,
-            entity_type="PART_REQUIREMENT",
-            entity_id="PART-REQ-104-SOLENOID",
-            payload={"delay_minutes": 180, "new_eta_tick": 198},
-            occurred_at=REFERENCE_EVAL_TIME_UTC,
-            ingested_at=REFERENCE_EVAL_TIME_UTC,
-            snapshot_hash_before="",
-            snapshot_hash_after="",
+    if not request.event_id or not request.event_id.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Disruption analysis request requires a non-empty 'event_id'.",
         )
 
     snap = get_live_snapshot()
+
+    event = stallbreaker_event_store.get_event(request.event_id)
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Disruption event '{request.event_id}' not found in event store.",
+        )
+
+    if event.rooftop_id != snap.rooftop.rooftop_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Disruption event '{request.event_id}' belongs to rooftop '{event.rooftop_id}', not active rooftop '{snap.rooftop.rooftop_id}'.",
+        )
+
     analysis = stallbreaker_engine.analyze_disruption(snap, event, current_schedule=request.plan)
     return analysis
 

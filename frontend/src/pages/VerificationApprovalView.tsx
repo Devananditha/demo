@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   approveStallBreakerRecovery,
+  fetchStallBreakerState,
   verifyCandidatePlan,
 } from '../api/predictClient';
 import { useAppState } from '../context/AppStateContext';
@@ -57,6 +58,7 @@ function ConstraintStatus({ status }: { status: 'unchecked' | 'pass' | 'fail' })
 export const VerificationApprovalView: React.FC = () => {
   const {
     workshopState,
+    setWorkshopState,
     recoveryReport,
     activeDisruptionEventId,
     verificationResult,
@@ -126,18 +128,51 @@ export const VerificationApprovalView: React.FC = () => {
 
   const handleApprove = async () => {
     const eventId = activeDisruptionEventId || recoveryReport?.event_id;
-    if (!planToCommit || !eventId || !workshopState?.snapshot_hash) return;
+    const verifiedSnapshotHash = verificationResult?.snapshot_hash;
+
+    if (!planToCommit || !eventId || !verifiedSnapshotHash) {
+      setError('Cannot approve: plan must be independently verified first.');
+      return;
+    }
+
     setApproveLoading(true);
     setError(null);
     try {
+      // 1. Retrieve the latest backend workshop state before approval
+      const latestState = await fetchStallBreakerState();
+
+      // 2. Confirm that its hash still matches the verified candidate's snapshot hash
+      if (latestState.snapshot_hash !== verifiedSnapshotHash) {
+        // State mutated since verification - invalidate verification and require re-verification
+        setVerificationResult(null);
+        setHasRunVerification(false);
+        setWorkshopState(latestState);
+        setError(
+          `Dealership state mutated after verification (verified hash: '${verifiedSnapshotHash}', latest state hash: '${latestState.snapshot_hash}'). Verification invalidated. Please run verification check again on the latest state.`
+        );
+        return;
+      }
+
+      // 3. Submit the verified candidate's current snapshot hash to the approval endpoint
       const result = await approveStallBreakerRecovery(
         planToCommit,
         eventId,
-        workshopState.snapshot_hash,
+        verifiedSnapshotHash,
         'MGR-MARCUS',
         freightToAuthorize ?? 0
       );
-      setApprovalResult(result);
+
+      if (result.status === 'ABORTED_STALE_STATE') {
+        setVerificationResult(null);
+        setHasRunVerification(false);
+        setWorkshopState(latestState);
+        setError(
+          result.message || 'OCC Version Mismatch: Dealership state changed during review.'
+        );
+      } else {
+        setApprovalResult(result);
+        setWorkshopState(latestState);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Approval failed.');
     } finally {
