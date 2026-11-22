@@ -429,6 +429,21 @@ class TestStallBreakerFastAPIEndpoints:
         assert resp.status_code == 404
 
     def test_api_stallbreaker_approval_and_commit(self, client: TestClient, canonical_snapshot: DealershipSnapshotSchema):
+        now = datetime.now(timezone.utc)
+        stallbreaker_event_store.record_event(
+            StoredEvent(
+                event_id="EVT-APPROVE-01",
+                rooftop_id="ROOF-01",
+                event_type=EventType.PARTS_ETA_CHANGED,
+                entity_type="PART_REQUIREMENT",
+                entity_id="PART-REQ-104-SOLENOID",
+                payload={"delay_minutes": 180, "new_ready_tick": 198},
+                occurred_at=now,
+                ingested_at=now,
+                snapshot_hash_before="",
+                snapshot_hash_after="",
+            )
+        )
         resp = client.post(
             "/api/v1/stallbreaker/approve",
             json={
@@ -446,6 +461,21 @@ class TestStallBreakerFastAPIEndpoints:
         assert data["outbox_events_dispatched"] > 0
 
     def test_api_stallbreaker_stale_hash_rejected_occ(self, client: TestClient):
+        now = datetime.now(timezone.utc)
+        stallbreaker_event_store.record_event(
+            StoredEvent(
+                event_id="EVT-APPROVE-STALE",
+                rooftop_id="ROOF-01",
+                event_type=EventType.PARTS_ETA_CHANGED,
+                entity_type="PART_REQUIREMENT",
+                entity_id="PART-REQ-104-SOLENOID",
+                payload={"delay_minutes": 180, "new_ready_tick": 198},
+                occurred_at=now,
+                ingested_at=now,
+                snapshot_hash_before="",
+                snapshot_hash_after="",
+            )
+        )
         resp = client.post(
             "/api/v1/stallbreaker/approve",
             json={
@@ -459,3 +489,170 @@ class TestStallBreakerFastAPIEndpoints:
         data = resp.json()
         assert data["status"] == "ABORTED_STALE_STATE"
         assert data["error_code"] == "OCC_VERSION_MISMATCH"
+
+    def test_api_stallbreaker_approve_rejects_missing_event_id_400(self, client: TestClient, canonical_snapshot: DealershipSnapshotSchema):
+        resp = client.post(
+            "/api/v1/stallbreaker/approve",
+            json={
+                "plan_id": "PLAN-REC-OFFER-104-S1",
+                "expected_snapshot_hash": canonical_snapshot.snapshot_hash,
+                "approver_id": "MGR-MARCUS",
+            },
+        )
+        assert resp.status_code == 400
+        assert "event_id" in resp.json()["detail"].lower()
+
+    def test_api_stallbreaker_approve_rejects_unknown_event_id_404(self, client: TestClient, canonical_snapshot: DealershipSnapshotSchema):
+        resp = client.post(
+            "/api/v1/stallbreaker/approve",
+            json={
+                "plan_id": "PLAN-REC-OFFER-104-S1",
+                "event_id": "EVT-UNKNOWN-DOES-NOT-EXIST",
+                "expected_snapshot_hash": canonical_snapshot.snapshot_hash,
+                "approver_id": "MGR-MARCUS",
+            },
+        )
+        assert resp.status_code == 404
+        assert "not found" in resp.json()["detail"].lower()
+
+    def test_api_stallbreaker_approve_rejects_rooftop_mismatch_404(self, client: TestClient, canonical_snapshot: DealershipSnapshotSchema):
+        now = datetime.now(timezone.utc)
+        stallbreaker_event_store.record_event(
+            StoredEvent(
+                event_id="EVT-OTHER-ROOFTOP",
+                rooftop_id="ROOF-DIFFERENT-ROOFTOP",
+                event_type=EventType.PARTS_ETA_CHANGED,
+                entity_type="PART_REQUIREMENT",
+                entity_id="PART-REQ-104-SOLENOID",
+                payload={"delay_minutes": 180, "new_ready_tick": 198},
+                occurred_at=now,
+                ingested_at=now,
+                snapshot_hash_before="",
+                snapshot_hash_after="",
+            )
+        )
+        resp = client.post(
+            "/api/v1/stallbreaker/approve",
+            json={
+                "plan_id": "PLAN-REC-OFFER-104-S1",
+                "event_id": "EVT-OTHER-ROOFTOP",
+                "expected_snapshot_hash": canonical_snapshot.snapshot_hash,
+                "approver_id": "MGR-MARCUS",
+            },
+        )
+        assert resp.status_code == 404
+
+    def test_api_stallbreaker_approve_rejects_missing_or_unknown_plan_id_400(self, client: TestClient, canonical_snapshot: DealershipSnapshotSchema):
+        now = datetime.now(timezone.utc)
+        stallbreaker_event_store.record_event(
+            StoredEvent(
+                event_id="EVT-VALID-01",
+                rooftop_id="ROOF-01",
+                event_type=EventType.PARTS_ETA_CHANGED,
+                entity_type="PART_REQUIREMENT",
+                entity_id="PART-REQ-104-SOLENOID",
+                payload={"delay_minutes": 180, "new_ready_tick": 198},
+                occurred_at=now,
+                ingested_at=now,
+                snapshot_hash_before="",
+                snapshot_hash_after="",
+            )
+        )
+        # Missing plan_id returns 400
+        resp_missing = client.post(
+            "/api/v1/stallbreaker/approve",
+            json={
+                "event_id": "EVT-VALID-01",
+                "expected_snapshot_hash": canonical_snapshot.snapshot_hash,
+                "approver_id": "MGR-MARCUS",
+            },
+        )
+        assert resp_missing.status_code == 400
+        assert "plan_id" in resp_missing.json()["detail"].lower()
+
+        # Unknown plan_id returns 400
+        resp_unknown = client.post(
+            "/api/v1/stallbreaker/approve",
+            json={
+                "plan_id": "PLAN-FABRICATED-DOES-NOT-EXIST",
+                "event_id": "EVT-VALID-01",
+                "expected_snapshot_hash": canonical_snapshot.snapshot_hash,
+                "approver_id": "MGR-MARCUS",
+            },
+        )
+        assert resp_unknown.status_code == 400
+        assert "not found" in resp_unknown.json()["detail"].lower()
+
+    def test_api_stallbreaker_approve_cannot_switch_to_different_event_or_plan(self, client: TestClient, canonical_snapshot: DealershipSnapshotSchema):
+        """Proves approval is strictly bound to the exact requested event and plan."""
+        now = datetime.now(timezone.utc)
+        # Event A: Parts delay for RO-104
+        stallbreaker_event_store.record_event(
+            StoredEvent(
+                event_id="EVT-A-PARTS-104",
+                rooftop_id="ROOF-01",
+                event_type=EventType.PARTS_ETA_CHANGED,
+                entity_type="PART_REQUIREMENT",
+                entity_id="PART-REQ-104-SOLENOID",
+                payload={"delay_minutes": 180, "new_ready_tick": 198},
+                occurred_at=now,
+                ingested_at=now,
+                snapshot_hash_before="",
+                snapshot_hash_after="",
+            )
+        )
+        # Event B: Technician unavailability
+        stallbreaker_event_store.record_event(
+            StoredEvent(
+                event_id="EVT-B-TECH-01",
+                rooftop_id="ROOF-01",
+                event_type=EventType.TECHNICIAN_UNAVAILABLE,
+                entity_type="TECHNICIAN",
+                entity_id="TECH-01",
+                payload={"tech_id": "TECH-01"},
+                occurred_at=now,
+                ingested_at=now,
+                snapshot_hash_before="",
+                snapshot_hash_after="",
+            )
+        )
+
+        # Get recommendations for Event A: contains PLAN-REC-OFFER-104-S1
+        rec_a = client.post(
+            "/api/v1/stallbreaker/recovery-recommendations",
+            json={"event_id": "EVT-A-PARTS-104", "allow_emergency_overtime": True},
+        )
+        assert rec_a.status_code == 200
+        valid_plan_a = rec_a.json()["recommended_plan_id"]
+        assert valid_plan_a == "PLAN-REC-OFFER-104-S1"
+
+        # Attempt to approve valid_plan_a under Event B -> MUST BE REJECTED with 400
+        # because valid_plan_a is not among Event B's recovery alternatives
+        resp_mismatch = client.post(
+            "/api/v1/stallbreaker/approve",
+            json={
+                "plan_id": valid_plan_a,
+                "event_id": "EVT-B-TECH-01",
+                "expected_snapshot_hash": canonical_snapshot.snapshot_hash,
+                "approver_id": "MGR-MARCUS",
+                "approved_freight_usd": "50.00",
+            },
+        )
+        assert resp_mismatch.status_code == 400
+        assert "not found among active recovery candidates" in resp_mismatch.json()["detail"].lower()
+
+        # Approve valid_plan_a under its actual Event A -> succeeds and commits exact plan
+        resp_valid = client.post(
+            "/api/v1/stallbreaker/approve",
+            json={
+                "plan_id": valid_plan_a,
+                "event_id": "EVT-A-PARTS-104",
+                "expected_snapshot_hash": canonical_snapshot.snapshot_hash,
+                "approver_id": "MGR-MARCUS",
+                "approved_freight_usd": "50.00",
+            },
+        )
+        assert resp_valid.status_code == 200
+        valid_data = resp_valid.json()
+        assert valid_data["status"] == "COMMITTED"
+        assert valid_data["plan_id"] == valid_plan_a

@@ -29,6 +29,7 @@ from app.stallbreaker import (
     StoredEvent,
     stallbreaker_approval_gateway,
     stallbreaker_engine,
+    stallbreaker_event_store,
 )
 from app.verifier.sweep_oracle import SweepLineOracle
 
@@ -205,6 +206,21 @@ class TestRecoveryWorkflowConsistency:
     def test_08_stale_plan_rejection(self, clean_api_client):
         """8. Stale-plan rejection by approval gateway."""
         snapshot = load_fixture_data()
+        now = datetime.now(timezone.utc)
+        stallbreaker_event_store.record_event(
+            StoredEvent(
+                event_id="EVT-1",
+                rooftop_id=snapshot.rooftop.rooftop_id,
+                event_type=EventType.PARTS_ETA_CHANGED,
+                entity_type="PART_REQUIREMENT",
+                entity_id="PART-REQ-104-SOLENOID",
+                payload={"delay_minutes": 180, "new_ready_tick": 198},
+                occurred_at=now,
+                ingested_at=now,
+                snapshot_hash_before=snapshot.snapshot_hash or "",
+                snapshot_hash_after=snapshot.snapshot_hash or "",
+            )
+        )
         res = clean_api_client.post(
             "/api/v1/stallbreaker/approve",
             json={
@@ -221,6 +237,21 @@ class TestRecoveryWorkflowConsistency:
     def test_09_commit_result_and_plan_id_consistency(self, clean_api_client):
         """9. Commit result and plan ID consistency."""
         snapshot = load_fixture_data()
+        now = datetime.now(timezone.utc)
+        stallbreaker_event_store.record_event(
+            StoredEvent(
+                event_id="EVT-1",
+                rooftop_id=snapshot.rooftop.rooftop_id,
+                event_type=EventType.PARTS_ETA_CHANGED,
+                entity_type="PART_REQUIREMENT",
+                entity_id="PART-REQ-104-SOLENOID",
+                payload={"delay_minutes": 180, "new_ready_tick": 198},
+                occurred_at=now,
+                ingested_at=now,
+                snapshot_hash_before=snapshot.snapshot_hash or "",
+                snapshot_hash_after=snapshot.snapshot_hash or "",
+            )
+        )
         res = clean_api_client.post(
             "/api/v1/stallbreaker/approve",
             json={

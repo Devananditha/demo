@@ -697,20 +697,46 @@ def get_stallbreaker_replay_record(replay_id: str) -> DecisionReplayRecord:
 )
 def approve_stallbreaker_recovery(request: StallBreakerApprovalRequest) -> CommitResult:
     """Version-bound manager approval with OCC fresh-state revalidation and outbox dispatch."""
+    if not request.event_id or not request.event_id.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Approval request requires a non-empty 'event_id'.",
+        )
+
+    if not request.plan_id or not request.plan_id.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Approval request requires a non-empty 'plan_id'.",
+        )
+
     snap = get_live_snapshot()
 
-    # Re-run recovery replan to get candidate alternative
-    replan_report = recover_replan(
-        RecoveryReplanRequest(
-            rooftop_id=snap.rooftop.rooftop_id,
-            snapshot_hash=snap.snapshot_hash or "",
+    event = stallbreaker_event_store.get_event(request.event_id)
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Disruption event '{request.event_id}' not found in event store.",
         )
+
+    if event.rooftop_id != snap.rooftop.rooftop_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Disruption event '{request.event_id}' belongs to rooftop '{event.rooftop_id}', not active rooftop '{snap.rooftop.rooftop_id}'.",
+        )
+
+    # Recompute recovery alternatives using the exact event and current snapshot
+    report = stallbreaker_engine.generate_recovery_recommendations(
+        snapshot=snap,
+        event=event,
+        allow_emergency_overtime=True,
+        evaluation_time_utc=REFERENCE_EVAL_TIME_UTC,
     )
-    candidate = next((a for a in replan_report.alternatives if a.plan_id == request.plan_id), None)
+
+    candidate = next((a for a in report.evaluated_alternatives if a.plan_id == request.plan_id), None)
     if not candidate:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Recovery plan '{request.plan_id}' not found in active recovery candidates.",
+            detail=f"Recovery plan '{request.plan_id}' not found among active recovery candidates for event '{request.event_id}'.",
         )
 
     result = stallbreaker_approval_gateway.process_approval(

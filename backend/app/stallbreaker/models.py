@@ -144,8 +144,8 @@ class StallBreakerApprovalRequest(BaseModel):
     """Version-bound manager approval request for a StallBreaker recovery action."""
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
-    plan_id: str = Field(..., min_length=1)
-    event_id: str = Field(..., min_length=1)
+    plan_id: Optional[str] = Field(default=None, description="Target recovery plan identifier")
+    event_id: Optional[str] = Field(default=None, description="Disruption event identifier")
     expected_snapshot_hash: str = Field(..., min_length=1)
     approver_id: str = Field(..., min_length=1)
     approved_freight_usd: Optional[Decimal] = Field(default=None, ge=Decimal("0.00"))
