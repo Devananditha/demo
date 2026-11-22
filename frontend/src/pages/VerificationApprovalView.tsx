@@ -58,6 +58,7 @@ export const VerificationApprovalView: React.FC = () => {
   const {
     workshopState,
     recoveryReport,
+    activeDisruptionEventId,
     verificationResult,
     setVerificationResult,
     approvalResult,
@@ -84,7 +85,12 @@ export const VerificationApprovalView: React.FC = () => {
     setVerifyLoading(true);
     setError(null);
     try {
-      const report = recoveryReport || (await fetchStallBreakerRecovery());
+      const report =
+        recoveryReport ||
+        (activeDisruptionEventId ? await fetchStallBreakerRecovery(activeDisruptionEventId) : null);
+      if (!report) {
+        throw new Error('No recovery report found. Please run Recovery Decisions first.');
+      }
       setVerificationResult(report);
       setHasRunVerification(true);
     } catch (err: unknown) {

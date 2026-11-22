@@ -36,6 +36,7 @@ from app.stallbreaker import (
     EventIngestRequest,
     EventType,
     StallBreakerEventStore,
+    StoredEvent,
     compute_hmac_sha256,
     stallbreaker_event_store,
 )
@@ -132,12 +133,30 @@ class TestE2EVerificationFlow:
         """3 & 4: Recovery plan is certified by L4 Oracle; Decision Replay diff and explainability recorded."""
         snap = get_live_snapshot()
 
+        # Explicitly create and record disruption event in event store
+        event_id = f"EVT-E2E-REC-{uuid.uuid4().hex[:8]}"
+        now = datetime.now(timezone.utc)
+        evt = StoredEvent(
+            event_id=event_id,
+            rooftop_id=snap.rooftop.rooftop_id,
+            event_type=EventType.PARTS_ETA_CHANGED,
+            entity_type="PART_REQUIREMENT",
+            entity_id="PART-REQ-104-SOLENOID",
+            payload={"delay_minutes": 180, "new_ready_tick": 198},
+            occurred_at=now,
+            ingested_at=now,
+            snapshot_hash_before=snap.snapshot_hash or "",
+            snapshot_hash_after=snap.snapshot_hash or "",
+        )
+        stallbreaker_event_store.record_event(evt)
+
         rec_resp = client.post(
             "/api/v1/stallbreaker/recovery-recommendations",
-            json={"allow_emergency_overtime": True},
+            json={"event_id": event_id, "allow_emergency_overtime": True},
         )
         assert rec_resp.status_code == 200
         rec_data = rec_resp.json()
+        assert rec_data["event_id"] == event_id
         assert rec_data["is_recovery_feasible"] is True
 
         # Property 3: Verify plan is certified by L4 sweep-line oracle in replan report
@@ -183,12 +202,30 @@ class TestE2EVerificationFlow:
         """5: Manager approval with stale OCC version is aborted."""
         snap_initial = get_live_snapshot()
 
+        # Ingest/record the event in event store first
+        event_id = f"EVT-APPROVE-STALE-{uuid.uuid4().hex[:8]}"
+        now = datetime.now(timezone.utc)
+        stallbreaker_event_store.record_event(
+            StoredEvent(
+                event_id=event_id,
+                rooftop_id=snap_initial.rooftop.rooftop_id,
+                event_type=EventType.PARTS_ETA_CHANGED,
+                entity_type="PART_REQUIREMENT",
+                entity_id="PART-REQ-104-SOLENOID",
+                payload={"delay_minutes": 180, "new_ready_tick": 198},
+                occurred_at=now,
+                ingested_at=now,
+                snapshot_hash_before=snap_initial.snapshot_hash or "",
+                snapshot_hash_after=snap_initial.snapshot_hash or "",
+            )
+        )
+
         # Attempt approval committing with stale_hash
         approve_resp = client.post(
             "/api/v1/stallbreaker/approve",
             json={
                 "plan_id": "PLAN-REC-OFFER-104-S1",
-                "event_id": f"EVT-APPROVE-STALE-{uuid.uuid4().hex[:8]}",
+                "event_id": event_id,
                 "expected_snapshot_hash": "STALE-HASH-INCORRECT-OCC-VERSION",
                 "approver_id": "MGR-MARCUS",
                 "approved_freight_usd": "50.00",

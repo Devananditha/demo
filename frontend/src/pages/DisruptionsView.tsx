@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 export const DisruptionsView: React.FC = () => {
-  const { workshopState, setActiveSection } = useAppState();
+  const { workshopState, setActiveSection, activeDisruptionEventId, setActiveDisruptionEventId } = useAppState();
   const scenario = SYNTHETIC_DISRUPTION_SCENARIO;
 
   const [events, setEvents] = useState<StoredEvent[]>([]);
@@ -49,6 +49,8 @@ export const DisruptionsView: React.FC = () => {
         entity_id: entityId,
         payload,
       });
+      // Save exact event ID in shared state ONLY after successful ingestion
+      setActiveDisruptionEventId(eventId);
       const updatedEvents = await fetchStallBreakerEvents();
       setEvents(updatedEvents);
       const result = await fetchStallBreakerDisruptionAnalysis(eventId);
@@ -282,18 +284,26 @@ export const DisruptionsView: React.FC = () => {
               Persisted Event Ledger ({events.length} records)
             </div>
             <div className="divide-y divide-[#eee8df] max-h-36 overflow-y-auto text-xs">
-              {events.slice(-5).map((e) => (
-                <div key={e.event_id} className="py-2 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-800 shrink-0" />
-                    <span className="font-medium text-stone-800">{e.event_type}</span>
-                    <span className="text-stone-500">({e.entity_id})</span>
+              {events.slice(-5).map((e) => {
+                const isActive = e.event_id === activeDisruptionEventId;
+                return (
+                  <div key={e.event_id} className={`py-2 px-2 rounded flex items-center justify-between transition-colors ${isActive ? 'bg-[#ede7dc] font-medium' : ''}`}>
+                    <div className="flex items-center gap-2">
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? 'bg-amber-600' : 'bg-stone-400'}`} />
+                      <span className="font-medium text-stone-800">{e.event_type}</span>
+                      <span className="text-stone-500">({e.entity_id})</span>
+                      {isActive && (
+                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-200">
+                          Active Context
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-stone-500 font-mono">
+                      ID: <span className={isActive ? 'font-bold text-stone-900' : ''}>{e.event_id}</span> &bull; SHA: {e.snapshot_hash_after.slice(0, 8)}…
+                    </div>
                   </div>
-                  <div className="text-[11px] text-stone-500 font-mono">
-                    ID: {e.event_id} &bull; SHA: {e.snapshot_hash_after.slice(0, 8)}…
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
