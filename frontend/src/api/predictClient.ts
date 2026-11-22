@@ -1,10 +1,12 @@
 import {
+  CandidateSchedulePlan,
   CommitResult,
   DealershipReadinessReport,
   DealershipStateResponse,
   EventIngestResponse,
   RecoveryRecommendationResponse,
   ScheduleResult,
+  ScheduleVerificationResult,
   StallBreakerDisruptionAnalysis,
   StallBreakerRecoveryReport,
   StoredEvent,
@@ -195,6 +197,35 @@ export async function fetchStallBreakerRecovery(
       // fallback
     }
     throw new Error(`Recovery Recommendations Error (HTTP ${res.status}): ${detail}`);
+  }
+  return res.json();
+}
+
+export async function verifyCandidatePlan(
+  rooftopId: string,
+  snapshotHash: string,
+  plan: CandidateSchedulePlan,
+  eventId?: string
+): Promise<ScheduleVerificationResult> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/verifier/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      rooftop_id: rooftopId,
+      snapshot_hash: snapshotHash,
+      plan,
+      ...(eventId ? { event_id: eventId } : {}),
+    }),
+  });
+  if (!res.ok) {
+    let detail = 'Verification request failed';
+    try {
+      const errData = await res.json();
+      detail = errData.detail || detail;
+    } catch {
+      // fallback
+    }
+    throw new Error(`Verifier Error (HTTP ${res.status}): ${detail}`);
   }
   return res.json();
 }

@@ -147,6 +147,7 @@ class VerificationRequest(BaseModel):
     rooftop_id: str = Field(..., min_length=1, description="Target dealership rooftop identifier")
     snapshot_hash: str = Field(..., min_length=1, description="Expected snapshot SHA-256 hash")
     plan: CandidateSchedulePlan = Field(..., description="Candidate schedule plan to independently audit")
+    event_id: Optional[str] = Field(default=None, description="Optional triggering disruption event ID")
 
 
 class DisruptionAnalysisRequest(BaseModel):
@@ -403,7 +404,54 @@ def verify_candidate_schedule(request: VerificationRequest) -> VerificationResul
             detail=f"Rooftop '{request.rooftop_id}' not found.",
         )
 
-    oracle = SweepLineOracle(snapshot)
+    cand_snapshot = snapshot
+
+    # 1. If event_id provided and in event store, resolve candidate context via event recovery
+    if request.event_id:
+        event = stallbreaker_event_store.get_event(request.event_id)
+        if event and event.rooftop_id == snapshot.rooftop.rooftop_id:
+            report = stallbreaker_engine.generate_recovery_recommendations(
+                snapshot=snapshot,
+                event=event,
+                allow_emergency_overtime=request.plan.allow_emergency_overtime,
+                evaluation_time_utc=REFERENCE_EVAL_TIME_UTC,
+            )
+            cand_alt = next((a for a in report.evaluated_alternatives if a.plan_id == request.plan.plan_id), None)
+            if cand_alt:
+                cand_snapshot, _ = stallbreaker_engine.pipeline._prepare_candidate_context(
+                    snapshot=snapshot,
+                    candidate=cand_alt.sourcing_candidate,
+                    evidence=load_canonical_evidence(snapshot, 159),
+                )
+
+    # 2. If cand_snapshot is still snapshot, check if plan_id directly references a supplier offer
+    if cand_snapshot is snapshot and ("PLAN-REC-" in request.plan.plan_id or "OFFER-" in request.plan.plan_id):
+        matching_offer = next(
+            (o for o in snapshot.supplier_offers if o.offer_id in request.plan.plan_id or f"PLAN-REC-{o.offer_id}" == request.plan.plan_id),
+            None,
+        )
+        if matching_offer:
+            from app.recover.models import SourcingCandidate
+            cand = SourcingCandidate(
+                option_id=matching_offer.offer_id,
+                offer_id=matching_offer.offer_id,
+                part_req_id=matching_offer.part_req_id,
+                supplier_id=matching_offer.supplier_id,
+                supplier_name=matching_offer.supplier_name,
+                unit_cost_usd=matching_offer.unit_cost_usd,
+                freight_surcharge_usd=matching_offer.freight_surcharge_usd,
+                total_sourcing_cost_usd=matching_offer.unit_cost_usd + matching_offer.freight_surcharge_usd,
+                quoted_eta_tick=matching_offer.quoted_eta_tick,
+                usable_ready_tick=matching_offer.usable_ready_tick or matching_offer.quoted_eta_tick,
+                is_feasible=True,
+            )
+            cand_snapshot, _ = stallbreaker_engine.pipeline._prepare_candidate_context(
+                snapshot=snapshot,
+                candidate=cand,
+                evidence=load_canonical_evidence(snapshot, 159),
+            )
+
+    oracle = SweepLineOracle(cand_snapshot)
     verdict = oracle.verify_plan(request.plan)
     return verdict
 

@@ -2,7 +2,9 @@
 
 from decimal import Decimal
 import pytest
+from fastapi.testclient import TestClient
 
+from app.api.main import app, get_live_snapshot
 from app.constraints.rules import ViolationCode
 from app.data.loader import load_fixture_data
 from app.verifier.models import CandidateSchedulePlan, ScheduledAssignment, VehicleBayOccupancy
@@ -153,3 +155,96 @@ class TestSweepLineOracleBaseline:
         result = oracle.verify_plan(plan)
         assert result.status == "FAIL"
         assert any(v.code == ViolationCode.C4_BAY_DOUBLE_BOOKED for v in result.violations)
+
+
+class TestVerifierAPIEndpoints:
+    """Regression tests for POST /api/v1/verifier/verify endpoint."""
+
+    @pytest.fixture
+    def client(self):
+        return TestClient(app)
+
+    def test_verifier_api_endpoint_candidate_context_s1(self, client):
+        """Verifies that a recovered candidate plan referencing OFFER-104-S1 is verified against candidate context."""
+        snap = get_live_snapshot()
+        # Create candidate plan matching S1 timing (starts at tick 165 when parts arrive)
+        plan = CandidateSchedulePlan(
+            plan_id="PLAN-REC-OFFER-104-S1",
+            rooftop_id=snap.rooftop.rooftop_id,
+            snapshot_hash=snap.snapshot_hash or "",
+            assignments=[
+                ScheduledAssignment(
+                    task_id="TASK-104-02",
+                    ro_id="RO-104",
+                    tech_id="TECH-02",
+                    bay_id="BAY-01",
+                    start_tick=165,
+                    end_tick=189,
+                ),
+            ],
+            allow_emergency_overtime=True,
+        )
+
+        resp = client.post(
+            "/api/v1/verifier/verify",
+            json={
+                "rooftop_id": snap.rooftop.rooftop_id,
+                "snapshot_hash": snap.snapshot_hash,
+                "plan": plan.model_dump(mode="json"),
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["plan_id"] == "PLAN-REC-OFFER-104-S1"
+        assert data["is_valid"] is True
+        assert len(data["violations"]) == 0
+
+    def test_verifier_api_endpoint_unknown_rooftop_returns_404(self, client):
+        snap = get_live_snapshot()
+        plan = CandidateSchedulePlan(
+            plan_id="PLAN-TEST-01",
+            rooftop_id="ROOF-INVALID",
+            snapshot_hash=snap.snapshot_hash or "",
+            assignments=[],
+        )
+        resp = client.post(
+            "/api/v1/verifier/verify",
+            json={
+                "rooftop_id": "ROOF-INVALID",
+                "snapshot_hash": snap.snapshot_hash,
+                "plan": plan.model_dump(mode="json"),
+            },
+        )
+        assert resp.status_code == 404
+
+    def test_verifier_api_endpoint_detects_constraint_violations(self, client):
+        snap = get_live_snapshot()
+        # Tech skill mismatch violation: Tech-04 (Maintenance) assigned to Transmission Replacement
+        plan = CandidateSchedulePlan(
+            plan_id="PLAN-TEST-VIOLATION",
+            rooftop_id=snap.rooftop.rooftop_id,
+            snapshot_hash=snap.snapshot_hash or "",
+            assignments=[
+                ScheduledAssignment(
+                    task_id="TASK-104-02",
+                    ro_id="RO-104",
+                    tech_id="TECH-04",
+                    bay_id="BAY-01",
+                    start_tick=165,
+                    end_tick=189,
+                ),
+            ],
+        )
+        resp = client.post(
+            "/api/v1/verifier/verify",
+            json={
+                "rooftop_id": snap.rooftop.rooftop_id,
+                "snapshot_hash": snap.snapshot_hash,
+                "plan": plan.model_dump(mode="json"),
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["is_valid"] is False
+        assert len(data["violations"]) > 0
+        assert any(v["constraint"] == "C1" for v in data["violations"])

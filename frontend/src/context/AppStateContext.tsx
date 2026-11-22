@@ -4,6 +4,7 @@ import {
   DealershipReadinessReport,
   DealershipStateResponse,
   ScheduleResult,
+  ScheduleVerificationResult,
   StallBreakerRecoveryReport,
 } from '../types';
 
@@ -19,7 +20,7 @@ export interface AppState {
   selectedPlanId: string | null;
   setSelectedPlanId: (id: string | null) => void;
   selectedAlternative: any | null;
-  verificationResult: any | null;
+  verificationResult: ScheduleVerificationResult | null;
   approvalResult: CommitResult | null;
   hasRunRecovery: boolean;
   hasRunVerification: boolean;
@@ -28,7 +29,7 @@ export interface AppState {
   setInitialSchedule: (schedule: ScheduleResult | null, snapshotHash?: string | null) => void;
   setActiveDisruptionEventId: (id: string | null) => void;
   setRecoveryReport: (report: StallBreakerRecoveryReport | null) => void;
-  setVerificationResult: (result: any | null) => void;
+  setVerificationResult: (result: ScheduleVerificationResult | null) => void;
   setApprovalResult: (result: CommitResult | null) => void;
   setHasRunRecovery: (val: boolean) => void;
   setHasRunVerification: (val: boolean) => void;
@@ -45,7 +46,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [activeDisruptionEventId, setActiveDisruptionEventId] = useState<string | null>(null);
   const [recoveryReport, setRecoveryReport] = useState<StallBreakerRecoveryReport | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
-  const [verificationResult, setVerificationResult] = useState<any | null>(null);
+  const [verificationResult, setVerificationResult] = useState<ScheduleVerificationResult | null>(null);
   const [approvalResult, setApprovalResult] = useState<CommitResult | null>(null);
   const [hasRunRecovery, setHasRunRecovery] = useState<boolean>(false);
   const [hasRunVerification, setHasRunVerification] = useState<boolean>(false);

@@ -152,11 +152,15 @@ export interface ObjectiveMetrics {
 }
 
 export interface ScheduleConstraintViolation {
-  rule_id: string;
-  description: string;
-  severity: string;
+  code?: string;
+  rule_id?: string;
+  constraint?: string;
+  description?: string;
+  message?: string;
+  severity?: string;
   entity_id?: string | null;
   tick?: number | null;
+  context?: Record<string, unknown>;
 }
 
 export interface ScheduleVerificationResult {
@@ -165,6 +169,7 @@ export interface ScheduleVerificationResult {
   is_valid: boolean;
   violations: ScheduleConstraintViolation[];
   execution_time_ms: number;
+  status?: 'PASS' | 'FAIL' | string;
 }
 
 export interface ScheduleResult {
@@ -325,6 +330,7 @@ export interface RecoveryAlternativeReport {
   is_pareto_optimal: boolean;
   is_recommended: boolean;
   rationale?: string | null;
+  schedule_result?: ScheduleResult | null;
 }
 
 export interface RecoveryRecommendationResponse {
@@ -425,10 +431,13 @@ export interface StallBreakerRecoveryReport {
 
 export interface OutboxEvent {
   event_id: string;
-  event_type: string;
+  aggregate_type?: string;
   aggregate_id: string;
+  event_type: string;
   payload: Record<string, any>;
-  occurred_at: string;
+  occurred_at?: string;
+  created_at?: string;
+  status?: string;
 }
 
 export interface CommitResult {
